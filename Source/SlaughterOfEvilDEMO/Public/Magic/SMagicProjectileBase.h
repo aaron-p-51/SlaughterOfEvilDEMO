@@ -34,20 +34,18 @@ public:
 	/* Configuration */
 	/*****************************************************************/
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn="true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn="true"))
 	float InitialSpeed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
 	float Mass;
 
 	/** Drag of projectile (N) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
 	float Drag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
 	FVector Gravity;
-
-
 
 	UPROPERTY(EditAnywhere, Category = "Config|Gameplay")
 	float BaseDamage;
@@ -58,7 +56,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Config|Gameplay")
 	uint32 bCausesDamage : 1;
 
-	UPROPERTY(VisibleDefaultsOnly, Category = "Config|Effects")
+	UPROPERTY(EditDefaultsOnly, Category = "Config|Effects")
 	UParticleSystem* OnHitEffects;
 
 protected:

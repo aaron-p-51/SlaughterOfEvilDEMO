@@ -6,9 +6,11 @@
 // Engine Includes
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Math/UnrealMathUtility.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Game Includes
@@ -47,6 +49,8 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	NextPosition = FVector::ZeroVector;
 	PreviousPosition = FVector::ZeroVector;
 
+	SetReplicates(true);
+
 }
 
 
@@ -80,6 +84,11 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 
 	if (DetectHit())
 	{
+		if (GetLocalRole() == ENetRole::ROLE_Authority)
+		{
+			TearOff();
+		}
+
 		Destroy();
 	}
 	else
@@ -134,8 +143,27 @@ bool ASMagicProjectileBase::DetectHit()
 	if (bHitDetected)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Hit %s"), *HitResult.GetActor()->GetName());
+		if (OnHitEffects)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, HitResult.Location, UKismetMathLibrary::MakeRotFromX(HitResult.Normal));
+		}
+
+
 	}
+
 
 	return bHitDetected;
 }
+
+void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASMagicProjectileBase, InitialSpeed);
+	DOREPLIFETIME(ASMagicProjectileBase, Mass);
+	DOREPLIFETIME(ASMagicProjectileBase, Drag);
+	DOREPLIFETIME(ASMagicProjectileBase, Gravity);
+
+}
+
 
