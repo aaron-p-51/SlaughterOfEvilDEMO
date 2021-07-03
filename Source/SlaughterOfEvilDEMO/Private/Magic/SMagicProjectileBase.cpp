@@ -1,0 +1,141 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+
+#include "Magic/SMagicProjectileBase.h"
+
+// Engine Includes
+#include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Math/UnrealMathUtility.h"
+
+
+// Game Includes
+
+// Sets default values
+ASMagicProjectileBase::ASMagicProjectileBase()
+{
+ 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	PrimaryActorTick.bCanEverTick = true;
+
+	SphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
+	if (SphereComp)
+	{
+		SetRootComponent(SphereComp);
+		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
+	}
+
+	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
+	if (SphereComp)
+	{
+		MeshComp->SetupAttachment(GetRootComponent());
+	}
+
+
+	// Set defaults
+	InitialSpeed = 10.f;
+	Mass = 1.f;
+	Drag = 0.f;
+	SphereTraceRadius = 10.f;
+	BaseDamage = 0.f;
+	bCanBeBlocked = false;
+	bCausesDamage = false;
+	Velocity = FVector::ZeroVector;
+	Acceleration = FVector::ZeroVector;
+	Gravity = FVector::ZeroVector;
+	NextPosition = FVector::ZeroVector;
+	PreviousPosition = FVector::ZeroVector;
+
+}
+
+
+// Called when the game starts or when spawned
+void ASMagicProjectileBase::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// Set projectile initial velocity
+	Velocity = GetActorForwardVector() * InitialSpeed;
+
+
+	// Assume Gravity and Mass will not change, avoid computing every frame
+	if (Mass == 0.f || FMath::IsNearlyZero(Mass))
+	{
+		DragEffect = 0.f;
+	}
+	else
+	{
+		DragEffect = Drag / Mass;
+	}
+}
+
+
+// Called every frame
+void ASMagicProjectileBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	CalculateMovement(DeltaTime);
+
+	if (DetectHit())
+	{
+		Destroy();
+	}
+	else
+	{
+		SetActorLocation(NextPosition);
+		SetActorRotation(UKismetMathLibrary::MakeRotFromX(Velocity));
+	}
+}
+
+
+void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
+{
+	PreviousPosition = GetActorLocation();
+
+	// Calculate acceleration taking into account gravity and drag
+	Acceleration = Gravity - (Velocity * Velocity) * DragEffect;
+
+	// Calculate the position offset this frame (See https://www.meizenberg.com/post/projectiles-with-blueprints for
+	// greater explanation, sources in post.)
+	FVector PositionOffset = (Velocity * DeltaTime) + (Acceleration * DeltaTime * DeltaTime) / 2;
+
+	// Position to move to this frame
+	NextPosition = PreviousPosition + PositionOffset;
+
+	// Update Velocity for next frame
+	Velocity = Velocity + Acceleration * DeltaTime;
+}
+
+
+bool ASMagicProjectileBase::DetectHit()
+{
+
+	TArray<AActor*> IgnoreActors;
+	IgnoreActors.Add(GetOwner());
+
+	FHitResult HitResult;
+
+	bool bHitDetected = UKismetSystemLibrary::SphereTraceSingle(
+		this,
+		PreviousPosition,
+		NextPosition,
+		SphereTraceRadius,
+		ETraceTypeQuery::TraceTypeQuery3,
+		false,
+		IgnoreActors,
+		EDrawDebugTrace::None,
+		HitResult,
+		true
+	);
+
+
+	if (bHitDetected)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hit %s"), *HitResult.GetActor()->GetName());
+	}
+
+	return bHitDetected;
+}
+
