@@ -38,7 +38,8 @@ ASCharacterBase::ASCharacterBase()
 
 	
 	
-	
+	SetReplicates(true);
+	SetReplicateMovement(true);
 
 }
 
