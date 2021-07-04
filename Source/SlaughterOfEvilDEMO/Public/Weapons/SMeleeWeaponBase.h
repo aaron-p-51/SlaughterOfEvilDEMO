@@ -7,6 +7,14 @@
 #include "SMeleeWeaponBase.generated.h"
 
 
+UENUM(BlueprintType)
+enum class EMeleeWeaponState : uint8
+{
+	EMWS_Idle			UMETA(DisplayName="Idle"),
+	EMWS_Attacking		UMETA(DisplayName="Attacking"),
+	EMWS_Blocking		UMETA(DisplayName="Blocking")
+};
+
 
 UCLASS(Abstract, Blueprintable)
 class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
@@ -36,6 +44,9 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly)
 	uint32 bIsMagicCharged : 1;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	EMeleeWeaponState MeleeWeaponState;
+
  /**
   * Methods
   */
@@ -56,9 +67,11 @@ public:
 	UFUNCTION()
 	virtual void RemoveMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicCharge, );
 
-
 	UFUNCTION()
 	virtual bool SetMagicChargeState(bool Charged);
+
+	UFUNCTION()
+	virtual bool TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState);
 
 
 	/*************************************************************************/
@@ -67,6 +80,9 @@ public:
 
 	UFUNCTION()
 	virtual bool IsMagicCharged() const;
+
+	UFUNCTION()
+	virtual EMeleeWeaponState GetMeleeWeaponState() const;
 
 
 };

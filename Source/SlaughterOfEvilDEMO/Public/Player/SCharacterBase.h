@@ -8,6 +8,17 @@
 
 
 class UCameraComponent;
+class ASMeleeWeaponBase;
+
+UENUM(BlueprintType)
+enum class EMeleeAttackDirection : uint8
+{
+	EMAD_Left			UMETA(DisplayName = "Left"),
+	EMAD_LeftDown		UMETA(DisplayName = "LeftDown"),
+	EMAD_Right			UMETA(DisplayName = "Right"),
+	EMAD_RightDown		UMETA(DisplayName = "RightDown")
+};
+
 
 UCLASS()
 class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter
@@ -29,6 +40,37 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	UCameraComponent* Camera;
 
+	/*************************************************************************/
+	/* Weapons*/
+	/*************************************************************************/
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
+
+	UPROPERTY(VisibleAnywhere)
+	ASMeleeWeaponBase* MeleeWeapon;
+
+	UPROPERTY(EditDefaultsOnly)
+	FName MeleeWeaponSocketName;
+
+	/*************************************************************************/
+	/* Animation */
+	/*************************************************************************/
+
+	UPROPERTY(VisibleDefaultsOnly)
+	UAnimInstance* FirstPersonAnimInstance;
+
+	UPROPERTY(VisibleDefaultsOnly)
+	UAnimInstance* ThirdPersonAnimInstance;
+
+	
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimMontage* MeleeAttackMontage;
+
+private:
+
+	EMeleeAttackDirection LastMeleeAttackDirection;
 
  /**
   * Methods
@@ -52,12 +94,29 @@ public:
 	void MoveForward(float Value);
 	void MoveRight(float Value);
 
+	UFUNCTION()
+	void WeaponAction();
+
+	UFUNCTION(Server, Reliable)
+	void ServerTryMeleeAttack();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttackDirection);
+
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
 
+private:	
+
+	EMeleeAttackDirection GetMeleeAttackDirection() const;
+
+	UFUNCTION()
+	void OnMontageNotifyBeginTryApplyDamage(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
+
+	UFUNCTION()
+	void OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
 
 };

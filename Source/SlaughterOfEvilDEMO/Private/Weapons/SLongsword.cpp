@@ -8,6 +8,15 @@
 
 // Game Includes
 
+ASLongsword::ASLongsword()
+{
+	// All Collisions will handled
+	if (MeshComp)
+	{
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+}
+
 
 void ASLongsword::BeginPlay()
 {
@@ -16,6 +25,8 @@ void ASLongsword::BeginPlay()
 		MeshDynamicMaterial = MeshComp->CreateAndSetMaterialInstanceDynamic(0);
 	};
 }
+
+
 
 
 void ASLongsword::ApplyMagicCharge()

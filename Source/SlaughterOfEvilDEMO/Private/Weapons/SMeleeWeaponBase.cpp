@@ -18,6 +18,8 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 	{
 		MeshComp->SetupAttachment(RootComp);
 	}
+
+	bIsMagicCharged = false;
 }
 
 
@@ -33,10 +35,32 @@ bool ASMeleeWeaponBase::SetMagicChargeState(bool Charged)
 	return false;
 }
 
+
+bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState)
+{
+
+	//
+	// Apply and state change conditions here
+	//
+
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		MeleeWeaponState = NewMeleeWeaponState;
+		return true;
+	}
+
+	return false;
+}
+
 bool ASMeleeWeaponBase::IsMagicCharged() const
 {
 	return bIsMagicCharged;
 }
 
+
+EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
+{
+	return MeleeWeaponState;
+}
 
 
