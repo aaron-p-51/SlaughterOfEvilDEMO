@@ -137,8 +137,8 @@ void ASCharacterBase::ServerTryMeleeAttack_Implementation()
 {
 	if (MeleeWeapon->TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking))
 	{
-		LastMeleeAttackDirection = EMeleeAttackDirection::EMAD_Left;
-		MulticastPlayMeleeAttackMontage(LastMeleeAttackDirection);
+		MeleeAttackDirection = GetMeleeAttackDirection();
+		MulticastPlayMeleeAttackMontage(MeleeAttackDirection);
 	}
 }
 
@@ -147,7 +147,7 @@ EMeleeAttackDirection ASCharacterBase::GetMeleeAttackDirection() const
 {
 	int32 RandomSwingIndex = UKismetMathLibrary::RandomIntegerInRange(0, 1);
 	
-	switch (LastMeleeAttackDirection)
+	switch (MeleeAttackDirection)
 	{
 		case EMeleeAttackDirection::EMAD_Left:
 		case EMeleeAttackDirection::EMAD_LeftDown:
@@ -176,19 +176,21 @@ EMeleeAttackDirection ASCharacterBase::GetMeleeAttackDirection() const
 		break;
 
 	default:
-		return LastMeleeAttackDirection;
+		return MeleeAttackDirection;
 		break;
 	}
 }
 
 
-void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttackDirection MeleeAttackDirection)
+void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttackDirection MeleeAttack)
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
 		if (FirstPersonAnimInstance)
 		{
-			if (FirstPersonAnimInstance->Montage_Play(MeleeAttackMontage) != MONTAGE_PLAY_FAIL)
+			auto AttackMontage = FirstPersonLongswordMontages.Find(MeleeAttack);
+
+			if (AttackMontage && FirstPersonAnimInstance->Montage_Play(*AttackMontage) != MONTAGE_PLAY_FAIL)
 			{
 				FirstPersonAnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
 				FirstPersonAnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);

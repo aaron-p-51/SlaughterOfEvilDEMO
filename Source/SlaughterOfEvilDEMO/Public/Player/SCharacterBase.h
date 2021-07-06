@@ -39,38 +39,39 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly)
 	UCameraComponent* Camera;
-
+	
 	/*************************************************************************/
 	/* Weapons*/
 	/*************************************************************************/
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Melee Weapons")
 	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, Category = "Configuration | Melee Weapons")
 	ASMeleeWeaponBase* MeleeWeapon;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Melee Weapons")
 	FName MeleeWeaponSocketName;
 
 	/*************************************************************************/
 	/* Animation */
 	/*************************************************************************/
 
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(VisibleDefaultsOnly, Category = "Configuration | Animation")
 	UAnimInstance* FirstPersonAnimInstance;
 
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(VisibleDefaultsOnly, Category = "Configuration | Animation")
 	UAnimInstance* ThirdPersonAnimInstance;
 
-	
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Animation")
+	TMap<EMeleeAttackDirection, UAnimMontage*> FirstPersonLongswordMontages;
 
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* MeleeAttackMontage;
 
 private:
 
-	EMeleeAttackDirection LastMeleeAttackDirection;
+	EMeleeAttackDirection MeleeAttackDirection;
 
  /**
   * Methods
@@ -101,7 +102,7 @@ public:
 	void ServerTryMeleeAttack();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttackDirection);
+	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
 
 
 protected:
