@@ -15,6 +15,22 @@ enum class EMeleeWeaponState : uint8
 	EMWS_Blocking		UMETA(DisplayName="Blocking")
 };
 
+USTRUCT(BlueprintType)
+struct FApplyDamageData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	float BaseDamage;
+
+	/** Damage will be applied to any actors that  */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float DamageSphereRadius;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UDamageType> DamageTypeClass;
+
+};
 
 UCLASS(Abstract, Blueprintable)
 class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
@@ -46,6 +62,25 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EMeleeWeaponState MeleeWeaponState;
+
+	/*************************************************************************/
+	/* Damage */
+	/*************************************************************************/
+	
+	FApplyDamageData ApplyDamageData;
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bDrawDebugHitSphere;
+
+	UPROPERTY(EditDefaultsOnly)
+	TArray<TEnumAsByte<EObjectTypeQuery>> OverlappingObjectTypes;
+
+	/*************************************************************************/
+	/* Gameplay */
+	/*************************************************************************/
+
+	//UPROPERTY(VisibleAnywhere)
+	//AActor* MyOwner;
 
  /**
   * Methods
@@ -83,6 +118,20 @@ public:
 
 	UFUNCTION()
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
+
+	/*************************************************************************/
+	/* Damage */
+	/*************************************************************************/
+	
+	UFUNCTION()
+	virtual bool TryApplyDamage(FVector& ApplyDamageCenter) const;
+
+	void SetApplyDamageData(FApplyDamageData DamageData);
+
+protected:
+
+	/** Called when the game starts or when spawned */
+	virtual void BeginPlay() override;
 
 
 };

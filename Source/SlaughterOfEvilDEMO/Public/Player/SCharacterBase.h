@@ -19,6 +19,30 @@ enum class EMeleeAttackDirection : uint8
 	EMAD_RightDown		UMETA(DisplayName = "RightDown")
 };
 
+USTRUCT(BlueprintType)
+struct FWeaponData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
+
+	UPROPERTY(VisibleAnywhere)
+	ASMeleeWeaponBase* MeleeWeapon;
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bIsStartingWeapon;
+
+	UPROPERTY(EditDefaultsOnly)
+	FName MeleeWeaponSocketName = FName(TEXT("RightHandMeleeWeaponSocket"));
+
+	UPROPERTY(EditDefaultsOnly)
+	float WeaponUseVerticalOffset;
+
+	UPROPERTY(EditDefaultsOnly)
+	float WeaponUseForwardOffset;
+
+};
 
 UCLASS()
 class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter
@@ -44,14 +68,12 @@ protected:
 	/* Weapons*/
 	/*************************************************************************/
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Melee Weapons")
-	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
+	TArray<FWeaponData> WeaponData;
 
-	UPROPERTY(VisibleAnywhere, Category = "Configuration | Melee Weapons")
-	ASMeleeWeaponBase* MeleeWeapon;
+	UPROPERTY()
+	int32 CurrentWeapon;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Melee Weapons")
-	FName MeleeWeaponSocketName;
 
 	/*************************************************************************/
 	/* Animation */
@@ -119,5 +141,11 @@ private:
 
 	UFUNCTION()
 	void OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
+
+	/*************************************************************************/
+	/* Helper Functions */
+	/*************************************************************************/
+
+	void SpawnStartingWeapons();
 
 };

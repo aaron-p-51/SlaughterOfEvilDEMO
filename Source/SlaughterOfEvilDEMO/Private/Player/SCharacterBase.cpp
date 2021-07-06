@@ -6,12 +6,14 @@
 // Engine Includes
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 
 // Game Includes
 #include "Weapons/SMeleeWeaponBase.h"
 
 const static float MONTAGE_PLAY_FAIL = 0.f;
+const static int32 NO_WEAPON_SET = -1;
 
 // Sets default values
 ASCharacterBase::ASCharacterBase()
@@ -41,38 +43,63 @@ ASCharacterBase::ASCharacterBase()
 		ThirdPersonMesh->SetOwnerNoSee(true);
 	}
 
-	MeleeWeaponSocketName = TEXT("RightHandMeleeWeaponSocket");
 	
 	ThirdPersonAnimInstance = GetMesh()->GetAnimInstance();
+	CurrentWeapon = NO_WEAPON_SET;
 	
 	SetReplicates(true);
 	SetReplicateMovement(true);
 
 }
 
+
 // Called when the game starts or when spawned
 void ASCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MeleeWeapon = GetWorld()->SpawnActor<ASMeleeWeaponBase>(MeleeWeaponClass);
-	if (MeleeWeapon)
-	{
-		if (IsLocallyControlled() && FirstPersonMesh)
-		{
-			MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, MeleeWeaponSocketName);
-		}
-		else if (GetMesh())
-		{
-			GetMesh()->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, MeleeWeaponSocketName);
-		}
-	}
+	SpawnStartingWeapons();
 	
 	// Cache the Animation Instance for first person mesh. DO NOT place this in
 	// constructor, will not be initialized properly
 	if (FirstPersonMesh)
 	{
 		FirstPersonAnimInstance = FirstPersonMesh->GetAnimInstance();
+	}
+}
+
+
+void ASCharacterBase::SpawnStartingWeapons()
+{
+	for (int32 i = 0; i < WeaponData.Num(); ++i)
+	{
+		FTransform WeaponSpawnTransform(GetActorTransform());
+		WeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, WeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
+		if (WeaponData[i].MeleeWeapon)
+		{
+			if (WeaponData[i].bIsStartingWeapon && CurrentWeapon == NO_WEAPON_SET)
+			{
+				CurrentWeapon = i;
+			}
+			else if (WeaponData[i].bIsStartingWeapon && CurrentWeapon > NO_WEAPON_SET)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Multiple starting weapons set for %s. Starting weapon will be set to %s"), *GetName(), *WeaponData[i].MeleeWeaponClass->GetName());
+			}
+
+
+			WeaponData[i].MeleeWeapon->SetOwner(this);
+			WeaponData[i].MeleeWeapon->SetInstigator(this);
+			if (IsLocallyControlled() && FirstPersonMesh)
+			{
+				WeaponData[i].MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponData[i].MeleeWeaponSocketName);
+			}
+			else if (GetMesh())
+			{
+				WeaponData[i].MeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponData[i].MeleeWeaponSocketName);
+			}
+
+			UGameplayStatics::FinishSpawningActor(WeaponData[i].MeleeWeapon, WeaponSpawnTransform);
+		}
 	}
 }
 
@@ -88,7 +115,6 @@ void ASCharacterBase::Tick(float DeltaTime)
 // Called to bind functionality to input
 void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-	
 	
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
@@ -119,7 +145,7 @@ void ASCharacterBase::MoveRight(float Value)
 void ASCharacterBase::WeaponAction()
 {
 	// Client side check see if weapon state is already attacking
-	if (MeleeWeapon->GetMeleeWeaponState() != EMeleeWeaponState::EMWS_Attacking)
+	if (WeaponData[CurrentWeapon].MeleeWeapon->GetMeleeWeaponState() != EMeleeWeaponState::EMWS_Attacking)
 	{
 		if (GetLocalRole() < ENetRole::ROLE_Authority)
 		{
@@ -135,7 +161,7 @@ void ASCharacterBase::WeaponAction()
 
 void ASCharacterBase::ServerTryMeleeAttack_Implementation()
 {
-	if (MeleeWeapon->TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking))
+	if (WeaponData[CurrentWeapon].MeleeWeapon->TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking))
 	{
 		MeleeAttackDirection = GetMeleeAttackDirection();
 		MulticastPlayMeleeAttackMontage(MeleeAttackDirection);
@@ -204,6 +230,18 @@ void ASCharacterBase::OnMontageNotifyBeginTryApplyDamage(FName NotifyName, const
 {
 	UE_LOG(LogTemp, Warning, TEXT("Notify Hit"));
 	
+	FApplyDamageData ApplyDamageData;
+	ApplyDamageData.BaseDamage = 1.f;
+	ApplyDamageData.DamageSphereRadius = 80.f;
+	
+
+	WeaponData[CurrentWeapon].MeleeWeapon->SetApplyDamageData(ApplyDamageData);
+
+	FVector DamageSphereLocation = GetOwner()->GetActorLocation();
+	DamageSphereLocation.Z += WeaponData[CurrentWeapon].WeaponUseVerticalOffset;
+	DamageSphereLocation +=	GetActorForwardVector() * WeaponData[CurrentWeapon].WeaponUseForwardOffset;
+	WeaponData[CurrentWeapon].MeleeWeapon->TryApplyDamage(DamageSphereLocation);
+
 	if (FirstPersonAnimInstance)
 	{
 		FirstPersonAnimInstance->OnPlayMontageNotifyBegin.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
@@ -218,9 +256,11 @@ void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, con
 		FirstPersonAnimInstance->OnPlayMontageNotifyEnd.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);
 	}
 
-	if (GetLocalRole() == ENetRole::ROLE_Authority && MeleeWeapon)
+	if (GetLocalRole() == ENetRole::ROLE_Authority && WeaponData[CurrentWeapon].MeleeWeapon)
 	{
-		MeleeWeapon->TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
+		WeaponData[CurrentWeapon].MeleeWeapon->TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
 	}
 }
+
+
 
