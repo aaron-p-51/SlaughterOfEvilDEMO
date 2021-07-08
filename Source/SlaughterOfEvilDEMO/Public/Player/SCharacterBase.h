@@ -20,7 +20,7 @@ enum class EMeleeAttackDirection : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FWeaponData
+struct FMeleeWeaponData
 {
 	GENERATED_BODY()
 
@@ -35,13 +35,6 @@ struct FWeaponData
 
 	UPROPERTY(EditDefaultsOnly)
 	FName MeleeWeaponSocketName = FName(TEXT("RightHandMeleeWeaponSocket"));
-
-	UPROPERTY(EditDefaultsOnly)
-	float WeaponUseVerticalOffset;
-
-	UPROPERTY(EditDefaultsOnly)
-	float WeaponUseForwardOffset;
-
 };
 
 UCLASS()
@@ -69,10 +62,12 @@ protected:
 	/*************************************************************************/
 
 	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
-	TArray<FWeaponData> WeaponData;
+	TArray<FMeleeWeaponData> MeleeWeaponData;
 
 	UPROPERTY()
-	int32 CurrentWeapon;
+	ASMeleeWeaponBase* CurrentWeapon;
+
+	uint32 CurrentWeaponIndex;
 
 
 	/*************************************************************************/

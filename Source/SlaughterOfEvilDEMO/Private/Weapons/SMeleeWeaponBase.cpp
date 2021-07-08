@@ -8,6 +8,9 @@
 #include "Engine/CollisionProfile.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SphereComponent.h"
+#include "Math/UnrealMathUtility.h"
 
 
 
@@ -16,6 +19,7 @@
 // Sets default values
 ASMeleeWeaponBase::ASMeleeWeaponBase()
 {
+	PrimaryActorTick.bCanEverTick = true;
 
 	RootComp = CreateDefaultSubobject<USceneComponent>(TEXT("RootComp"));
 	if (RootComp)
@@ -29,15 +33,86 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 		MeshComp->SetupAttachment(RootComp);
 	}
 
+	CollisionComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CollisionComp"));
+	if (CollisionComp)
+	{
+		CollisionComp->SetupAttachment(GetRootComponent());
+	}
+
 	bIsMagicCharged = false;
 }
 
 
+
+
 void ASMeleeWeaponBase::BeginPlay()
 {
-	//MyOwner = GetOwner();
+	Super::BeginPlay();
+
+
+	CacheDamageTraceArguments();
 }
 
+
+
+
+
+void ASMeleeWeaponBase::CacheDamageTraceArguments()
+{
+	if (CollisionComp)
+	{
+		TraceRadius = CollisionComp->GetScaledCapsuleRadius();
+		TraceHalfHeight = CollisionComp->GetScaledCapsuleHalfHeight();
+	}
+
+	TraceIgnoreActors.Add(GetOwner());
+	CollisionObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+}
+
+void ASMeleeWeaponBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if ((GetLocalRole() == ENetRole::ROLE_Authority) && (MeleeWeaponState == EMeleeWeaponState::EMWS_Attacking))
+	{
+		bool Hit = CheckForCollision();
+	}
+}
+
+bool ASMeleeWeaponBase::CheckForCollision()
+{
+	if (CollisionComp)
+	{
+
+		FVector TraceEnd = CollisionComp->GetComponentLocation();
+
+		bool Hit = UKismetSystemLibrary::CapsuleTraceSingleForObjects(
+			this,
+			PreviousCollisionCenter,
+			TraceEnd,
+			TraceRadius,
+			TraceHalfHeight,
+			CollisionObjectTypes,
+			true,
+			TraceIgnoreActors,
+			EDrawDebugTrace::None,
+			HitResult,
+			true
+		);
+
+		if (Hit)
+		{
+			DrawDebugSphere(GetWorld(), HitResult.Location, 5.f, 12, FColor::Red, false, 2.f, 0.f, 0.3f);
+			TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
+		}
+		else
+		{
+			PreviousCollisionCenter = TraceEnd;
+		}
+	}
+
+	return true;
+}
 
 bool ASMeleeWeaponBase::SetMagicChargeState(bool Charged)
 {
@@ -58,15 +133,28 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 	//
 	// Apply and state change conditions here
 	//
-
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
+		if (MeleeWeaponState != EMeleeWeaponState::EMWS_Attacking && NewMeleeWeaponState == EMeleeWeaponState::EMWS_Attacking)
+		{
+			if (CollisionComp)
+			{
+				PreviousCollisionCenter = CollisionComp->GetComponentLocation();
+				UE_LOG(LogTemp, Warning, TEXT("Start Sphere Trace"));
+			}
+		}
+		else if (NewMeleeWeaponState != EMeleeWeaponState::EMWS_Attacking)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Stop Sphere Trace"));
+		}
+
 		MeleeWeaponState = NewMeleeWeaponState;
 		return true;
 	}
 
 	return false;
 }
+
 
 bool ASMeleeWeaponBase::IsMagicCharged() const
 {
@@ -79,57 +167,16 @@ EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
 	return MeleeWeaponState;
 }
 
-bool ASMeleeWeaponBase::TryApplyDamage(FVector& ApplyDamageCenter) const
+void ASMeleeWeaponBase::SetCanCauseDamage(bool CanDamage)
 {
-	if (GetOwner())
-	{
-		/*FVector DamageSphereLocation = GetOwner()->GetActorLocation();
-		DamageSphereLocation.Z += ApplyDamageData.DamageSphereVerticleOffset;
-		DamageSphereLocation += GetOwner()->GetActorForwardVector() * ApplyDamageData.DamageSphereOwnerForwardOffset;*/
-
-		TArray<AActor*> OverlappingActors;
-		TArray<AActor*> ActorsToIgnore;
-		ActorsToIgnore.Add(GetOwner());
-
-		if (bDrawDebugHitSphere)
-		{
-			DrawDebugSphere(GetWorld(), ApplyDamageCenter, ApplyDamageData.DamageSphereRadius, 12, FColor::Red, false, 1.f, 0.f, 1.f);
-		}
-
-		bool hitActor = UKismetSystemLibrary::SphereOverlapActors(
-			GetWorld(),
-			ApplyDamageCenter,
-			ApplyDamageData.DamageSphereRadius,
-			OverlappingObjectTypes,
-			nullptr,
-			ActorsToIgnore,
-			OverlappingActors);
-		
-		// Apply damage to all hit actors
-		if (hitActor)
-		{
-			for (auto Actor : OverlappingActors)
-			{
-				APawn* OwnerPawn = Cast<APawn>(GetOwner());
-				if (OwnerPawn)
-				{
-					AController* OwnerController = OwnerPawn->GetController();
-					if (OwnerController)
-					{
-						UGameplayStatics::ApplyDamage(Actor, ApplyDamageData.BaseDamage, OwnerController, GetOwner(), ApplyDamageData.DamageTypeClass);
-					}
-				}
-			}
-		}
-
-		return hitActor;
-	}
-
-	return false;
+	CanDamage ? TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking) : TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
 }
 
-void ASMeleeWeaponBase::SetApplyDamageData(FApplyDamageData DamageData)
+
+void ASMeleeWeaponBase::SetIsBlocking(bool Blocking)
 {
-	ApplyDamageData = DamageData;
+	Blocking ? TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Blocking) : TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
 }
+
+
 

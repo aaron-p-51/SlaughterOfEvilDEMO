@@ -10,6 +10,9 @@
 
 ASLongsword::ASLongsword()
 {
+
+	PrimaryActorTick.bCanEverTick = true;
+
 	// All Collisions will handled
 	if (MeshComp)
 	{
@@ -18,14 +21,21 @@ ASLongsword::ASLongsword()
 }
 
 
+
 void ASLongsword::BeginPlay()
 {
+	Super::BeginPlay();
+
 	if (MeshComp)
 	{
 		MeshDynamicMaterial = MeshComp->CreateAndSetMaterialInstanceDynamic(0);
 	};
 }
 
+void ASLongsword::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+}
 
 
 

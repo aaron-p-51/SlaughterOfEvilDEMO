@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "SMeleeWeaponBase.generated.h"
 
+class UCapsuleComponent;
+class USphereComponent;
 
 UENUM(BlueprintType)
 enum class EMeleeWeaponState : uint8
@@ -15,22 +17,6 @@ enum class EMeleeWeaponState : uint8
 	EMWS_Blocking		UMETA(DisplayName="Blocking")
 };
 
-USTRUCT(BlueprintType)
-struct FApplyDamageData
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	float BaseDamage;
-
-	/** Damage will be applied to any actors that  */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float DamageSphereRadius;
-
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UDamageType> DamageTypeClass;
-
-};
 
 UCLASS(Abstract, Blueprintable)
 class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
@@ -53,6 +39,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	UStaticMeshComponent* MeshComp;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UCapsuleComponent* CollisionComp;
+
 	/*************************************************************************/
 	/* State Variables */
 	/*************************************************************************/
@@ -67,20 +56,36 @@ protected:
 	/* Damage */
 	/*************************************************************************/
 	
-	FApplyDamageData ApplyDamageData;
-
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	bool bDrawDebugHitSphere;
 
-	UPROPERTY(EditDefaultsOnly)
-	TArray<TEnumAsByte<EObjectTypeQuery>> OverlappingObjectTypes;
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	float BaseDamage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	uint32 bCanDamageMultipleTargetsPerUse : 1;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Damage")
+	TSubclassOf<UDamageType> DamageTypeClass;
+
+	FVector PreviousCollisionCenter;
+
+	// Cached Trace arguments
+	float TraceRadius;
+	float TraceHalfHeight;
+
+	UPROPERTY()
+	TArray<AActor*> TraceIgnoreActors;
+	UPROPERTY()
+	TArray<TEnumAsByte<EObjectTypeQuery>> CollisionObjectTypes;
+
+	FHitResult HitResult;
+
 
 	/*************************************************************************/
 	/* Gameplay */
 	/*************************************************************************/
 
-	//UPROPERTY(VisibleAnywhere)
-	//AActor* MyOwner;
 
  /**
   * Methods
@@ -91,6 +96,8 @@ public:
 	/** Sets default values for this actor's properties */
 	ASMeleeWeaponBase();
 
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
 
 	/*************************************************************************/
 	/* Change Magic State */
@@ -120,18 +127,24 @@ public:
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
 
 	/*************************************************************************/
-	/* Damage */
+	/* Gameplay */
 	/*************************************************************************/
 	
-	UFUNCTION()
-	virtual bool TryApplyDamage(FVector& ApplyDamageCenter) const;
+	virtual void SetCanCauseDamage(bool CanDamage);
 
-	void SetApplyDamageData(FApplyDamageData DamageData);
+	virtual void SetIsBlocking(bool Blocking);
+
 
 protected:
 
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
+
+private:
+
+	virtual bool CheckForCollision();
+
+	void CacheDamageTraceArguments();
 
 
 };

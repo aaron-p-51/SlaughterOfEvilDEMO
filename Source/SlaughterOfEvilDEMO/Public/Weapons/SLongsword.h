@@ -36,6 +36,9 @@ protected:
 
 	 ASLongsword();
 
+	 // Called every frame
+	 virtual void Tick(float DeltaTime) override;
+
 	/*************************************************************************/
 	/* Change Magic State */
 	/*************************************************************************/
