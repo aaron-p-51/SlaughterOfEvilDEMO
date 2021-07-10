@@ -35,6 +35,12 @@ struct FMeleeWeaponData
 
 	UPROPERTY(EditDefaultsOnly)
 	FName MeleeWeaponSocketName = FName(TEXT("RightHandMeleeWeaponSocket"));
+
+	UPROPERTY(EditDefaultsOnly)
+	TMap<EMeleeAttackDirection, UAnimMontage*> FirstPeronAttackMontages;
+
+	UPROPERTY(EditDefaultsOnly)
+	TMap<EMeleeAttackDirection, UAnimMontage*> ThirdPeronAttackMontages;
 };
 
 UCLASS()
@@ -80,8 +86,7 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Configuration | Animation")
 	UAnimInstance* ThirdPersonAnimInstance;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Animation")
-	TMap<EMeleeAttackDirection, UAnimMontage*> FirstPersonLongswordMontages;
+
 
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* MeleeAttackMontage;

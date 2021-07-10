@@ -44,7 +44,7 @@ ASCharacterBase::ASCharacterBase()
 	}
 
 	
-	ThirdPersonAnimInstance = GetMesh()->GetAnimInstance();
+	
 	CurrentWeaponIndex = NO_WEAPON_SET;
 	
 	SetReplicates(true);
@@ -65,6 +65,10 @@ void ASCharacterBase::BeginPlay()
 	if (FirstPersonMesh)
 	{
 		FirstPersonAnimInstance = FirstPersonMesh->GetAnimInstance();
+	}
+	if (GetMesh())
+	{
+		ThirdPersonAnimInstance = GetMesh()->GetAnimInstance();
 	}
 }
 
@@ -208,14 +212,43 @@ void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttac
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		if (FirstPersonAnimInstance)
+		// Damage window is only set from FPP on server
+		auto ServerFirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FirstPeronAttackMontages.Find(MeleeAttack);
+		if (ServerFirstPersonAttackMontage && FirstPersonAnimInstance)
 		{
-			auto AttackMontage = FirstPersonLongswordMontages.Find(MeleeAttack);
-
-			if (AttackMontage && FirstPersonAnimInstance->Montage_Play(*AttackMontage) != MONTAGE_PLAY_FAIL)
+			if (FirstPersonAnimInstance->Montage_Play(*ServerFirstPersonAttackMontage))
 			{
 				FirstPersonAnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
 				FirstPersonAnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);
+			}
+		}
+
+		// Some repeated code, trying to avoid doing TMap.Find() when montage will not be used
+		if (!IsLocallyControlled() && ThirdPersonAnimInstance)
+		{
+			auto ThirdPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].ThirdPeronAttackMontages.Find(MeleeAttack);
+			if (*ThirdPersonAttackMontage)
+			{
+				ThirdPersonAnimInstance->Montage_Play(*ThirdPersonAttackMontage);
+			}
+		}
+	}
+	else
+	{
+		if (IsLocallyControlled() && FirstPersonAnimInstance)	// Autonomous Proxy
+		{
+			auto FirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FirstPeronAttackMontages.Find(MeleeAttack);
+			if (*FirstPersonAttackMontage)
+			{
+				FirstPersonAnimInstance->Montage_Play(*FirstPersonAttackMontage);
+			}
+		}
+		else if (ThirdPersonAnimInstance)	// Simulated Proxy
+		{
+			auto ThirdPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].ThirdPeronAttackMontages.Find(MeleeAttack);
+			if (*ThirdPersonAttackMontage)
+			{
+				ThirdPersonAnimInstance->Montage_Play(*ThirdPersonAttackMontage);
 			}
 		}
 	}
