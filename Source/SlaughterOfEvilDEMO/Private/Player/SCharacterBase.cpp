@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Game Includes
@@ -133,6 +134,8 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &APawn::AddControllerPitchInput);
 
 	PlayerInputComponent->BindAction(TEXT("Action"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponAction);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponBlockStart);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::WeaponBlockStop);
 	
 }
 
@@ -283,4 +286,41 @@ void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, con
 }
 
 
+void ASCharacterBase::WeaponBlockStart()
+{
+	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	{
+		ServerTrySetWeaponBlocking(true);
+	}
+	else
+	{
+		ServerTrySetWeaponBlocking_Implementation(true);
+	}
+}
+
+
+void ASCharacterBase::WeaponBlockStop()
+{
+	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	{
+		ServerTrySetWeaponBlocking(false);
+	}
+	else
+	{
+		ServerTrySetWeaponBlocking_Implementation(false);
+	}
+}
+
+void ASCharacterBase::ServerTrySetWeaponBlocking_Implementation(bool IsBlocking)
+{
+	bIsBlocking = IsBlocking;
+}
+
+void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASCharacterBase, bIsBlocking);
+
+}
 

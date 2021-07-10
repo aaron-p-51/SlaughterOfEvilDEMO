@@ -86,10 +86,15 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Configuration | Animation")
 	UAnimInstance* ThirdPersonAnimInstance;
 
+	//UPROPERTY(EditDefaultsOnly)
+	//UAnimMontage* MeleeAttackMontage;
 
+	/*************************************************************************/
+	/* State */
+	/*************************************************************************/
 
-	UPROPERTY(EditDefaultsOnly)
-	UAnimMontage* MeleeAttackMontage;
+	UPROPERTY(Replicated)
+	uint32 bIsBlocking : 1;
 
 private:
 
@@ -125,6 +130,20 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
+
+	UFUNCTION()
+	void WeaponBlockStart();
+
+	UFUNCTION()
+	void WeaponBlockStop();
+
+	UFUNCTION(Server, Reliable)
+	void ServerTrySetWeaponBlocking(bool IsBlocking);
+
+	UFUNCTION(BlueprintPure)
+	FORCEINLINE bool GetIsBlocking() const { return bIsBlocking; }
+
+
 
 
 protected:
