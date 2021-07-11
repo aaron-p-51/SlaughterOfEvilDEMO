@@ -29,9 +29,8 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* MeshComp;
 
-public:
 	/*****************************************************************/
-	/* Configuration */
+	/* Movement Configuration */
 	/*****************************************************************/
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn="true"))
@@ -47,16 +46,23 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
 	FVector Gravity;
 
-	UPROPERTY(EditAnywhere, Category = "Config|Gameplay")
+	/*****************************************************************/
+	/* Gameplay */
+	/*****************************************************************/
+
+	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	float BaseDamage;
 
-	UPROPERTY(EditAnywhere, Category = "Config|Gameplay")
+	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCanBeBlocked : 1;
 
-	UPROPERTY(EditAnywhere, Category = "Config|Gameplay")
+	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCausesDamage : 1;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Config|Effects")
+	UPROPERTY(EditAnywhere, Category = "Gameplay")
+	float MaxBlockAngle;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	UParticleSystem* OnHitEffects;
 
 protected:
@@ -106,6 +112,8 @@ private:
 	void CalculateMovement(float DeltaTime);
 
 	bool DetectHit();
+
+	bool TryApplyMagicCharge(AActor* ActorToMagicCharge);
 
 
 };

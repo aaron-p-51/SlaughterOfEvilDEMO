@@ -74,6 +74,40 @@ void ASCharacterBase::BeginPlay()
 }
 
 
+bool ASCharacterBase::TrySetMagicCharge(bool Charged)
+{
+	// Can not be magic charged if already charged
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{ 
+		if (Charged && !bIsMagicCharged)
+		{
+			bIsMagicCharged = true;
+			OnRep_IsMagicCharge();
+			return true;
+		}
+		else if (!Charged && bIsMagicCharged)
+		{
+			bIsMagicCharged = false;
+			OnRep_IsMagicCharge();
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void ASCharacterBase::OnRep_IsMagicCharge()
+{
+	if (bIsMagicCharged && IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
+	{
+		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
+		if (MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon)
+		{
+			MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->ApplyMagicCharge();
+		}
+	}
+}
+
 void ASCharacterBase::SpawnStartingWeapons()
 {
 	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
@@ -311,10 +345,19 @@ void ASCharacterBase::WeaponBlockStop()
 	}
 }
 
+
 void ASCharacterBase::ServerTrySetWeaponBlocking_Implementation(bool IsBlocking)
 {
 	bIsBlocking = IsBlocking;
+	MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->SetIsBlocking(IsBlocking);
 }
+
+
+bool ASCharacterBase::IsBlocking()
+{
+	return bIsBlocking;
+}
+
 
 void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

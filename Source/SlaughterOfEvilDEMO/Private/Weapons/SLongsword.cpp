@@ -43,7 +43,7 @@ void ASLongsword::ApplyMagicCharge()
 {
 	if (SetMagicChargeState(true))
 	{
-		if (MeshDynamicMaterial && !IsMagicCharged())
+		if (MeshDynamicMaterial && IsMagicCharged())
 		{
 			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
 		}

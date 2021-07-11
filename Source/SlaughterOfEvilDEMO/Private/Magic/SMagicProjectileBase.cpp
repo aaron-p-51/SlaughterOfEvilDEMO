@@ -14,6 +14,7 @@
 
 
 // Game Includes
+#include "SMeleeWeaponWielder.h"
 
 // Sets default values
 ASMagicProjectileBase::ASMagicProjectileBase()
@@ -142,18 +143,43 @@ bool ASMagicProjectileBase::DetectHit()
 
 	if (bHitDetected)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit %s"), *HitResult.GetActor()->GetName());
+		
 		if (OnHitEffects)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, HitResult.Location, UKismetMathLibrary::MakeRotFromX(HitResult.Normal));
 		}
 
-
+		TryApplyMagicCharge(HitResult.GetActor());
 	}
 
 
 	return bHitDetected;
 }
+
+
+bool ASMagicProjectileBase::TryApplyMagicCharge(AActor* ActorToMagicCharge)
+{
+	if (ActorToMagicCharge)
+	{
+		auto MeleeWeaponWielderInterface = Cast<ISMeleeWeaponWielder>(ActorToMagicCharge);
+		if (MeleeWeaponWielderInterface)
+		{
+			if (MeleeWeaponWielderInterface->IsBlocking())
+			{
+				float x = FVector::DotProduct(GetActorForwardVector(), ActorToMagicCharge->GetActorForwardVector());
+				
+				// TODO: Scale MaxBlockAngle of Dot product results
+				if (x >= -1.f && x <= -0.8f)
+				{
+					return MeleeWeaponWielderInterface->TrySetMagicCharge(true);
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 
 void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

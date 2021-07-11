@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "SMeleeWeaponWielder.h"
 #include "SCharacterBase.generated.h"
+
 
 
 class UCameraComponent;
@@ -41,10 +43,13 @@ struct FMeleeWeaponData
 
 	UPROPERTY(EditDefaultsOnly)
 	TMap<EMeleeAttackDirection, UAnimMontage*> ThirdPeronAttackMontages;
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimMontage* BlockImpactMontage;
 };
 
 UCLASS()
-class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter
+class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, public ISMeleeWeaponWielder
 {
 	GENERATED_BODY()
 
@@ -96,6 +101,10 @@ protected:
 	UPROPERTY(Replicated)
 	uint32 bIsBlocking : 1;
 
+	/* Need to set with RepNotify to play block anim montage*/
+	UPROPERTY(ReplicatedUsing=OnRep_IsMagicCharge)
+	uint32 bIsMagicCharged : 1;
+
 private:
 
 	EMeleeAttackDirection MeleeAttackDirection;
@@ -141,7 +150,7 @@ public:
 	void ServerTrySetWeaponBlocking(bool IsBlocking);
 
 	UFUNCTION(BlueprintPure)
-	FORCEINLINE bool GetIsBlocking() const { return bIsBlocking; }
+	virtual bool IsBlocking() override;
 
 
 
@@ -150,6 +159,10 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual bool TrySetMagicCharge(bool Charged) override;
+
+	UFUNCTION()
+	void OnRep_IsMagicCharge();
 
 private:	
 
