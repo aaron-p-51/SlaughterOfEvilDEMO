@@ -27,7 +27,7 @@ public:
 
 
 	virtual bool IsBlocking() = 0;
-	virtual bool TrySetMagicCharge(bool Charged) = 0;
+	//virtual bool TrySetMagicCharge(bool Charged) = 0;
 
 
 };

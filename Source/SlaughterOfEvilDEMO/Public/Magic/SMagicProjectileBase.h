@@ -65,6 +65,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	UParticleSystem* OnHitEffects;
 
+	UPROPERTY(EditDefaultsOnly)
+	TEnumAsByte<ECollisionChannel> CollisionChannel;
+
 protected:
 
 	/*****************************************************************/
@@ -113,7 +116,7 @@ private:
 
 	bool DetectHit();
 
-	bool TryApplyMagicCharge(AActor* ActorToMagicCharge);
+	bool TryApplyMagicCharge(TArray<FHitResult>& HitResult);
 
 
 };

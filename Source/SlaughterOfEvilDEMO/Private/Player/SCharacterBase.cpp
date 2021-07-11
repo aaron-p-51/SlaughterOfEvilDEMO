@@ -48,7 +48,7 @@ ASCharacterBase::ASCharacterBase()
 	
 	CurrentWeaponIndex = NO_WEAPON_SET;
 	
-	SetReplicates(true);
+	bReplicates = true;
 	SetReplicateMovement(true);
 
 }
@@ -74,61 +74,105 @@ void ASCharacterBase::BeginPlay()
 }
 
 
-bool ASCharacterBase::TrySetMagicCharge(bool Charged)
-{
-	// Can not be magic charged if already charged
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{ 
-		if (Charged && !bIsMagicCharged)
-		{
-			bIsMagicCharged = true;
-			OnRep_IsMagicCharge();
-			return true;
-		}
-		else if (!Charged && bIsMagicCharged)
-		{
-			bIsMagicCharged = false;
-			OnRep_IsMagicCharge();
-			return true;
-		}
-	}
+//bool ASCharacterBase::TrySetMagicCharge(bool Charged)
+//{
+//	// Can not be magic charged if already charged
+//	if (GetLocalRole() == ENetRole::ROLE_Authority)
+//	{ 
+//		if (Charged && !bIsMagicCharged)
+//		{
+//			bIsMagicCharged = true;
+//			OnRep_IsMagicCharge();
+//			return true;
+//		}
+//		else if (!Charged && bIsMagicCharged)
+//		{
+//			bIsMagicCharged = false;
+//			OnRep_IsMagicCharge();
+//			return true;
+//		}
+//	}
+//
+//	return false;
+//}
 
-	return false;
-}
-
-void ASCharacterBase::OnRep_IsMagicCharge()
-{
-	if (bIsMagicCharged && IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
-	{
-		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
-		if (MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon)
-		{
-			MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->ApplyMagicCharge();
-		}
-	}
-}
+//void ASCharacterBase::OnRep_IsMagicCharge()
+//{
+//	if (bIsMagicCharged && IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
+//	{
+//		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
+//		if (MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon)
+//		{
+//			MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->ApplyMagicCharge();
+//		}
+//	}
+//}
 
 void ASCharacterBase::SpawnStartingWeapons()
 {
 	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
 	{
-		FTransform WeaponSpawnTransform(GetActorTransform());
-		MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
-		if (MeleeWeaponData[i].MeleeWeapon)
+		// Server needs first person and third person weapons (all collisions are from FPP)
+		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
-			MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
-			MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
-			if (IsLocallyControlled() && FirstPersonMesh)
+			// FPP sword
+			FTransform WeaponSpawnTransform(GetActorTransform());
+			MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
+			if (MeleeWeaponData[i].MeleeWeapon && FirstPersonMesh)
 			{
+				MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
+				MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
 				MeleeWeaponData[i].MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-			}
-			else if (GetMesh())
-			{
-				MeleeWeaponData[i].MeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
+				MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_FirstPerson);
+				UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
+				
 			}
 
-			UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
+			FTransform WeaponSpawnTransformTPP(GetActorTransform());
+			MeleeWeaponData[i].MeleeWeaponThirdPerson = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformTPP));
+			if (MeleeWeaponData[i].MeleeWeaponThirdPerson && GetMesh())
+			{
+				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetOwner(this);
+				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetInstigator(this);
+				MeleeWeaponData[i].MeleeWeaponThirdPerson->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
+				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_ThirdPerson);
+				UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeaponThirdPerson, WeaponSpawnTransformTPP);
+			}
+				
 		}
+
+		//if (IsLocallyControlled() && GetLocalRole() < ENetRole::ROLE_Authority)
+		//{
+		//	// FPP sword
+		//	FTransform WeaponSpawnTransform(GetActorTransform());
+		//	MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
+		//	if (MeleeWeaponData[i].MeleeWeapon && FirstPersonMesh)
+		//	{
+		//		MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
+		//		MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
+		//		MeleeWeaponData[i].MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
+		//		
+
+		//		UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
+		//		MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_FirstPerson);
+		//	}
+		//}
+		//else if (!IsLocallyControlled())
+		//{
+		//	// FPP sword
+		//	FTransform WeaponSpawnTransform(GetActorTransform());
+		//	MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
+		//	if (MeleeWeaponData[i].MeleeWeapon && GetMesh())
+		//	{
+		//		MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
+		//		MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
+		//		MeleeWeaponData[i].MeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
+		//		
+
+		//		UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
+		//		MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_ThirdPerson);
+		//	}
+		//}
 	}
 
 	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
@@ -359,11 +403,20 @@ bool ASCharacterBase::IsBlocking()
 }
 
 
+void ASCharacterBase::SetWeaponMagicCharged(bool Charged)
+{
+	if (IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
+	{
+		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
+	}
+}
+
 void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ASCharacterBase, bIsBlocking);
+
 
 }
 

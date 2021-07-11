@@ -32,6 +32,9 @@ struct FMeleeWeaponData
 	UPROPERTY(VisibleAnywhere)
 	ASMeleeWeaponBase* MeleeWeapon;
 
+	UPROPERTY(VisibleAnywhere)
+	ASMeleeWeaponBase* MeleeWeaponThirdPerson;
+
 	UPROPERTY(EditDefaultsOnly)
 	bool bIsStartingWeapon;
 
@@ -101,9 +104,9 @@ protected:
 	UPROPERTY(Replicated)
 	uint32 bIsBlocking : 1;
 
-	/* Need to set with RepNotify to play block anim montage*/
-	UPROPERTY(ReplicatedUsing=OnRep_IsMagicCharge)
-	uint32 bIsMagicCharged : 1;
+	///* Need to set with RepNotify to play block anim montage*/
+	//UPROPERTY(ReplicatedUsing=OnRep_IsMagicCharge)
+	//uint32 bIsMagicCharged : 1;
 
 private:
 
@@ -152,6 +155,8 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool IsBlocking() override;
 
+	void SetWeaponMagicCharged(bool Charged);
+
 
 
 
@@ -159,10 +164,13 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	virtual bool TrySetMagicCharge(bool Charged) override;
+	/*virtual bool TrySetMagicCharge(bool Charged) override;*/
 
-	UFUNCTION()
-	void OnRep_IsMagicCharge();
+	//UFUNCTION()
+	//void OnRep_IsMagicCharge();
+
+	UFUNCTION(BlueprintCallable)
+	void SpawnStartingWeapons();
 
 private:	
 
@@ -178,6 +186,6 @@ private:
 	/* Helper Functions */
 	/*************************************************************************/
 
-	void SpawnStartingWeapons();
+
 
 };
