@@ -17,6 +17,13 @@ enum class EMeleeWeaponState : uint8
 	EMWS_Blocking		UMETA(DisplayName="Blocking")
 };
 
+UENUM(BlueprintType)
+enum class EMeleeWeaponPerspective : uint8
+{
+	EMWP_FirstPerson	UMETA(DisplayName="FirstPerson"),
+	EMWP_ThirdPerson	UMETA(DisplayName="ThirdPerson")
+};
+
 
 UCLASS(Abstract, Blueprintable)
 class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
@@ -46,7 +53,7 @@ protected:
 	/* State Variables */
 	/*************************************************************************/
 
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(ReplicatedUsing=OnRep_SetMagicCharge, VisibleDefaultsOnly, BlueprintReadOnly)
 	uint32 bIsMagicCharged : 1;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -86,6 +93,8 @@ protected:
 	/* Gameplay */
 	/*************************************************************************/
 
+	EMeleeWeaponPerspective MeleeWeaponPerspective;
+
 
  /**
   * Methods
@@ -103,14 +112,14 @@ public:
 	/* Change Magic State */
 	/*************************************************************************/
 
-	UFUNCTION()
-	virtual void ApplyMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::ApplyMagicCharge, );
+	//UFUNCTION()
+	//virtual void ApplyMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::ApplyMagicCharge, );
+
+	//UFUNCTION()
+	//virtual void RemoveMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicCharge, );
 
 	UFUNCTION()
-	virtual void RemoveMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicCharge, );
-
-	UFUNCTION()
-	virtual bool SetMagicChargeState(bool Charged);
+	virtual bool TrySetMagicCharge(bool Charged);
 
 	UFUNCTION()
 	virtual bool TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState);
@@ -134,17 +143,24 @@ public:
 
 	virtual void SetIsBlocking(bool Blocking);
 
+	void SetMeleeWeaponPerspective(EMeleeWeaponPerspective Perspective);
+
 
 protected:
 
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
+	virtual void OnRep_SetMagicCharge();
+
 private:
 
 	virtual bool CheckForCollision();
 
 	void CacheDamageTraceArguments();
+
+
 
 
 };

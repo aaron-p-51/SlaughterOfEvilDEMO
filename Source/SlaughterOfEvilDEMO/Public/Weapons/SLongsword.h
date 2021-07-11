@@ -43,9 +43,12 @@ protected:
 	/* Change Magic State */
 	/*************************************************************************/
 
-	virtual void ApplyMagicCharge() override;
+	/*virtual void ApplyMagicCharge() override;
 
-	virtual void RemoveMagicCharge() override;
+	virtual void RemoveMagicCharge() override;*/
+
+
+	 virtual void OnRep_SetMagicCharge() override;
 
 
 protected:

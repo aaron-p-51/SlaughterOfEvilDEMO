@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "SMeleeWeaponWielder.h"
 #include "SCharacterBase.generated.h"
+
 
 
 class UCameraComponent;
@@ -30,6 +32,9 @@ struct FMeleeWeaponData
 	UPROPERTY(VisibleAnywhere)
 	ASMeleeWeaponBase* MeleeWeapon;
 
+	UPROPERTY(VisibleAnywhere)
+	ASMeleeWeaponBase* MeleeWeaponThirdPerson;
+
 	UPROPERTY(EditDefaultsOnly)
 	bool bIsStartingWeapon;
 
@@ -41,10 +46,13 @@ struct FMeleeWeaponData
 
 	UPROPERTY(EditDefaultsOnly)
 	TMap<EMeleeAttackDirection, UAnimMontage*> ThirdPeronAttackMontages;
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimMontage* BlockImpactMontage;
 };
 
 UCLASS()
-class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter
+class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, public ISMeleeWeaponWielder
 {
 	GENERATED_BODY()
 
@@ -86,10 +94,19 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Configuration | Animation")
 	UAnimInstance* ThirdPersonAnimInstance;
 
+	//UPROPERTY(EditDefaultsOnly)
+	//UAnimMontage* MeleeAttackMontage;
 
+	/*************************************************************************/
+	/* State */
+	/*************************************************************************/
 
-	UPROPERTY(EditDefaultsOnly)
-	UAnimMontage* MeleeAttackMontage;
+	UPROPERTY(Replicated)
+	uint32 bIsBlocking : 1;
+
+	///* Need to set with RepNotify to play block anim montage*/
+	//UPROPERTY(ReplicatedUsing=OnRep_IsMagicCharge)
+	//uint32 bIsMagicCharged : 1;
 
 private:
 
@@ -126,11 +143,34 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
 
+	UFUNCTION()
+	void WeaponBlockStart();
+
+	UFUNCTION()
+	void WeaponBlockStop();
+
+	UFUNCTION(Server, Reliable)
+	void ServerTrySetWeaponBlocking(bool IsBlocking);
+
+	UFUNCTION(BlueprintPure)
+	virtual bool IsBlocking() override;
+
+	void SetWeaponMagicCharged(bool Charged);
+
+
+
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	/*virtual bool TrySetMagicCharge(bool Charged) override;*/
+
+	//UFUNCTION()
+	//void OnRep_IsMagicCharge();
+
+	UFUNCTION(BlueprintCallable)
+	void SpawnStartingWeapons();
 
 private:	
 
@@ -146,6 +186,6 @@ private:
 	/* Helper Functions */
 	/*************************************************************************/
 
-	void SpawnStartingWeapons();
+
 
 };

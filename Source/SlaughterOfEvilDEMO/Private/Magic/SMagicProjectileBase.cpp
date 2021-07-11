@@ -14,6 +14,8 @@
 
 
 // Game Includes
+#include "SMeleeWeaponWielder.h"
+#include "Weapons/SMeleeWeaponBase.h"
 
 // Sets default values
 ASMagicProjectileBase::ASMagicProjectileBase()
@@ -72,6 +74,8 @@ void ASMagicProjectileBase::BeginPlay()
 	{
 		DragEffect = Drag / Mass;
 	}
+
+
 }
 
 
@@ -124,36 +128,79 @@ bool ASMagicProjectileBase::DetectHit()
 	TArray<AActor*> IgnoreActors;
 	IgnoreActors.Add(GetOwner());
 
-	FHitResult HitResult;
+	TArray<FHitResult> HitResults;
 
-	bool bHitDetected = UKismetSystemLibrary::SphereTraceSingle(
+	bool bHitDetected = UKismetSystemLibrary::SphereTraceMulti(
 		this,
 		PreviousPosition,
 		NextPosition,
 		SphereTraceRadius,
-		ETraceTypeQuery::TraceTypeQuery3,
+		UEngineTypes::ConvertToTraceType(CollisionChannel),
 		false,
 		IgnoreActors,
 		EDrawDebugTrace::None,
-		HitResult,
+		HitResults,
 		true
 	);
 
 
 	if (bHitDetected)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit %s"), *HitResult.GetActor()->GetName());
-		if (OnHitEffects)
+		
+		/*if (OnHitEffects)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, HitResult.Location, UKismetMathLibrary::MakeRotFromX(HitResult.Normal));
+		}*/
+
+		if (GetLocalRole() == ENetRole::ROLE_Authority)
+		{
+			TryApplyMagicCharge(HitResults);
 		}
-
-
+		
 	}
 
 
 	return bHitDetected;
 }
+
+
+bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
+{
+	for (auto HitResult : HitResult)
+	{
+		auto MagicChargableActor = Cast<ASMeleeWeaponBase>(HitResult.GetActor());
+		if (MagicChargableActor)
+		{
+			if (MagicChargableActor->GetMeleeWeaponState() == EMeleeWeaponState::EMWS_Blocking)
+			{
+				MagicChargableActor->TrySetMagicCharge(true);
+			}
+		}
+	}
+
+	//if (ActorToMagicCharge)
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *ActorToMagicCharge->GetName());
+
+	//	auto MeleeWeaponWielderInterface = Cast<ISMeleeWeaponWielder>(ActorToMagicCharge);
+	//	if (MeleeWeaponWielderInterface)
+	//	{
+	//		if (MeleeWeaponWielderInterface->IsBlocking())
+	//		{
+	//			float x = FVector::DotProduct(GetActorForwardVector(), ActorToMagicCharge->GetActorForwardVector());
+	//			
+	//			// TODO: Scale MaxBlockAngle of Dot product results
+	//			if (x >= -1.f && x <= -0.8f)
+	//			{
+	//				return MeleeWeaponWielderInterface->TrySetMagicCharge(true);
+	//			}
+	//		}
+	//	}
+	//}
+
+	return false;
+}
+
 
 void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

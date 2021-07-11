@@ -39,26 +39,47 @@ void ASLongsword::Tick(float DeltaTime)
 
 
 
-void ASLongsword::ApplyMagicCharge()
+void ASLongsword::OnRep_SetMagicCharge()
 {
-	if (SetMagicChargeState(true))
+	Super::OnRep_SetMagicCharge();
+
+	if (MeshDynamicMaterial)
 	{
-		if (MeshDynamicMaterial && !IsMagicCharged())
+		if (bIsMagicCharged)
 		{
 			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
 		}
-	}
-}
-
-
-void ASLongsword::RemoveMagicCharge()
-{
-	if (SetMagicChargeState(false))
-	{
-		if (MeshDynamicMaterial && !IsMagicCharged())
+		else
 		{
 			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
 		}
 	}
 }
+
+//bool ASLongsword::TrySetMagicCharge(bool Charged)
+//{
+//	Super::TrySetMagicCharge(Charged);
+//
+//	if (bIsMagicCharged && ) 
+//
+//	if (SetMagicChargeState(true))
+//	{
+//		if (MeshDynamicMaterial && IsMagicCharged())
+//		{
+//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
+//		}
+//	}
+//}
+
+
+//void ASLongsword::RemoveMagicCharge()
+//{
+//	if (SetMagicChargeState(false))
+//	{
+//		if (MeshDynamicMaterial && !IsMagicCharged())
+//		{
+//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
+//		}
+//	}
+//}
 
