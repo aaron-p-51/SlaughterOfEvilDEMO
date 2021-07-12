@@ -7,6 +7,7 @@
 #include "SLongsword.generated.h"
 
 class UMaterialInstanceDynamic;
+class USMagicChargeComponent;
 
 
 /**
@@ -28,6 +29,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterialInstanceDynamic* MeshDynamicMaterial;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USMagicChargeComponent* MagicChargeComp;
+
 /**
  * Methods
  */
@@ -48,7 +52,7 @@ protected:
 	virtual void RemoveMagicCharge() override;*/
 
 
-	 virtual void OnRep_SetMagicCharge() override;
+	/* virtual void OnRep_SetMagicCharge() override;*/
 
 
 protected:

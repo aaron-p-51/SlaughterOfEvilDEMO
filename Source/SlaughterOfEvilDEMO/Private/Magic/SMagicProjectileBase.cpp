@@ -16,6 +16,7 @@
 // Game Includes
 #include "SMeleeWeaponWielder.h"
 #include "Weapons/SMeleeWeaponBase.h"
+#include "Components/SMagicChargeComponent.h"
 
 // Sets default values
 ASMagicProjectileBase::ASMagicProjectileBase()
@@ -51,7 +52,7 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	NextPosition = FVector::ZeroVector;
 	PreviousPosition = FVector::ZeroVector;
 
-	SetReplicates(true);
+	bReplicates = true;
 
 }
 
@@ -168,35 +169,13 @@ bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
 {
 	for (auto HitResult : HitResult)
 	{
-		auto MagicChargableActor = Cast<ASMeleeWeaponBase>(HitResult.GetActor());
-		if (MagicChargableActor)
+		UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitResult.GetActor()->GetName());
+		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
+		if (ActorMagicChargeComp)
 		{
-			if (MagicChargableActor->GetMeleeWeaponState() == EMeleeWeaponState::EMWS_Blocking)
-			{
-				MagicChargableActor->TrySetMagicCharge(true);
-			}
+			ActorMagicChargeComp->TrySetMagicCharge(true);
 		}
 	}
-
-	//if (ActorToMagicCharge)
-	//{
-	//	UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *ActorToMagicCharge->GetName());
-
-	//	auto MeleeWeaponWielderInterface = Cast<ISMeleeWeaponWielder>(ActorToMagicCharge);
-	//	if (MeleeWeaponWielderInterface)
-	//	{
-	//		if (MeleeWeaponWielderInterface->IsBlocking())
-	//		{
-	//			float x = FVector::DotProduct(GetActorForwardVector(), ActorToMagicCharge->GetActorForwardVector());
-	//			
-	//			// TODO: Scale MaxBlockAngle of Dot product results
-	//			if (x >= -1.f && x <= -0.8f)
-	//			{
-	//				return MeleeWeaponWielderInterface->TrySetMagicCharge(true);
-	//			}
-	//		}
-	//	}
-	//}
 
 	return false;
 }

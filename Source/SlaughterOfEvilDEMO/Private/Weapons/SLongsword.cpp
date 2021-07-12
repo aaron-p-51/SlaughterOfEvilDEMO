@@ -7,6 +7,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 
 // Game Includes
+#include "Components/SMagicChargeComponent.h"
 
 ASLongsword::ASLongsword()
 {
@@ -18,6 +19,8 @@ ASLongsword::ASLongsword()
 	{
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
+	MagicChargeComp = CreateDefaultSubobject<USMagicChargeComponent>(TEXT("MagicChargeComp"));
 }
 
 
@@ -39,22 +42,22 @@ void ASLongsword::Tick(float DeltaTime)
 
 
 
-void ASLongsword::OnRep_SetMagicCharge()
-{
-	Super::OnRep_SetMagicCharge();
-
-	if (MeshDynamicMaterial)
-	{
-		if (bIsMagicCharged)
-		{
-			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
-		}
-		else
-		{
-			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
-		}
-	}
-}
+//void ASLongsword::OnRep_SetMagicCharge()
+//{
+//	Super::OnRep_SetMagicCharge();
+//
+//	if (MeshDynamicMaterial)
+//	{
+//		if (bIsMagicCharged)
+//		{
+//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
+//		}
+//		else
+//		{
+//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
+//		}
+//	}
+//}
 
 //bool ASLongsword::TrySetMagicCharge(bool Charged)
 //{

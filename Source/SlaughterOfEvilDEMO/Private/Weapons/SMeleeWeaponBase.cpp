@@ -11,7 +11,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Math/UnrealMathUtility.h"
-#include "Net/UnrealNetwork.h"
+//#include "Net/UnrealNetwork.h"
 
 // Game Includes
 #include "Player/SCharacterBase.h"
@@ -44,9 +44,9 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	bIsMagicCharged = false;
+	//bIsMagicCharged = false;
 
-	bReplicates = true;
+	//bReplicates = true;
 }
 
 
@@ -202,40 +202,40 @@ bool ASMeleeWeaponBase::CheckForCollision()
 }
 
 
-bool ASMeleeWeaponBase::TrySetMagicCharge(bool Charged)
-{
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{
-		if (Charged && !bIsMagicCharged)
-		{
-			bIsMagicCharged = true;
-			OnRep_SetMagicCharge();
-			return true;
-		}
-		else if (!Charged && bIsMagicCharged)
-		{
-			bIsMagicCharged = false;
-			OnRep_SetMagicCharge();
-			return true;
-		}
-	}
+//bool ASMeleeWeaponBase::TrySetMagicCharge(bool Charged)
+//{
+//	if (GetLocalRole() == ENetRole::ROLE_Authority)
+//	{
+//		if (Charged && !bIsMagicCharged)
+//		{
+//			bIsMagicCharged = true;
+//			OnRep_SetMagicCharge();
+//			return true;
+//		}
+//		else if (!Charged && bIsMagicCharged)
+//		{
+//			bIsMagicCharged = false;
+//			OnRep_SetMagicCharge();
+//			return true;
+//		}
+//	}
+//
+//	return false;
+//}
 
-	return false;
-}
 
-
-void ASMeleeWeaponBase::OnRep_SetMagicCharge()
-{
-	auto MyOwner = GetOwner();
-	if (MyOwner)
-	{
-		auto CharacterOwner = Cast<ASCharacterBase>(MyOwner);
-		if (CharacterOwner)
-		{
-			CharacterOwner->SetWeaponMagicCharged(bIsMagicCharged);
-		}
-	}
-}
+//void ASMeleeWeaponBase::OnRep_SetMagicCharge()
+//{
+//	auto MyOwner = GetOwner();
+//	if (MyOwner)
+//	{
+//		auto CharacterOwner = Cast<ASCharacterBase>(MyOwner);
+//		if (CharacterOwner)
+//		{
+//			CharacterOwner->SetWeaponMagicCharged(bIsMagicCharged);
+//		}
+//	}
+//}
 
 
 bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState)
@@ -286,10 +286,10 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 }
 
 
-bool ASMeleeWeaponBase::IsMagicCharged() const
-{
-	return bIsMagicCharged;
-}
+//bool ASMeleeWeaponBase::IsMagicCharged() const
+//{
+//	return bIsMagicCharged;
+//}
 
 
 EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
@@ -319,13 +319,13 @@ void ASMeleeWeaponBase::SetMeleeWeaponPerspective(EMeleeWeaponPerspective Perspe
 }
 
 
-void ASMeleeWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ASMeleeWeaponBase, bIsMagicCharged);
-
-}
+//void ASMeleeWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+//{
+//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+//
+//	DOREPLIFETIME(ASMeleeWeaponBase, bIsMagicCharged);
+//
+//}
 
 
 

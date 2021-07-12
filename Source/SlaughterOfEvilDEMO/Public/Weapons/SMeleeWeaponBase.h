@@ -53,8 +53,8 @@ protected:
 	/* State Variables */
 	/*************************************************************************/
 
-	UPROPERTY(ReplicatedUsing=OnRep_SetMagicCharge, VisibleDefaultsOnly, BlueprintReadOnly)
-	uint32 bIsMagicCharged : 1;
+	//UPROPERTY(ReplicatedUsing=OnRep_SetMagicCharge, VisibleDefaultsOnly, BlueprintReadOnly)
+	//uint32 bIsMagicCharged : 1;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EMeleeWeaponState MeleeWeaponState;
@@ -118,8 +118,8 @@ public:
 	//UFUNCTION()
 	//virtual void RemoveMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicCharge, );
 
-	UFUNCTION()
-	virtual bool TrySetMagicCharge(bool Charged);
+	//UFUNCTION()
+	//virtual bool TrySetMagicCharge(bool Charged);
 
 	UFUNCTION()
 	virtual bool TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState);
@@ -129,8 +129,8 @@ public:
 	/* Accessors */
 	/*************************************************************************/
 
-	UFUNCTION()
-	virtual bool IsMagicCharged() const;
+	//UFUNCTION()
+	//virtual bool IsMagicCharged() const;
 
 	UFUNCTION()
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
@@ -151,15 +151,14 @@ protected:
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	virtual void OnRep_SetMagicCharge();
+	//UFUNCTION()
+	//virtual void OnRep_SetMagicCharge();
 
 private:
 
 	virtual bool CheckForCollision();
 
 	void CacheDamageTraceArguments();
-
 
 
 
