@@ -179,10 +179,13 @@ bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
 		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
 		if (ActorMagicChargeComp)
 		{
-			bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(true);
-			if (AppliedCharge)
+			if (HitActorCanAcceptMagicCharge(*ActorMagicChargeComp))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("%s is now charged"), *HitResult.GetActor()->GetName());
+				bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(true);
+			}
+			else
+			{
+				// Apply Damage...
 			}
 		}
 	}
@@ -190,6 +193,32 @@ bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
 	return false;
 }
 
+
+bool ASMagicProjectileBase::HitActorCanAcceptMagicCharge(USMagicChargeComponent& HitActorMagicChargeComp)
+{
+	if (HitActorMagicChargeComp.IsMagicCharged()) return false;
+
+	if (HitActorMagicChargeComp.OwnerMustFaceChargeSource())
+	{
+		// Get the owner of the owner of HitActorMagicChargeComp, this should be CharacterBase 
+		auto HitActorOwner = HitActorMagicChargeComp.GetOwner()->GetOwner();
+		if (HitActorOwner)
+		{
+			// Get the dot product between projectile forward vector and forward vector of HitActors Owner 
+			float Dot = FVector::DotProduct(GetActorForwardVector(), HitActorOwner->GetActorForwardVector());
+		
+			// The max angle HitActorOwner can face away from the projectile is 180 (deg). Map 0 to 180 range to
+			// output range of dot product (for dot product -1 if actors in line above face same direction, 1 of opposite directions) 
+			float MapDot = FMath::GetMappedRangeValueUnclamped(FVector2D(-1.f, 1.f), FVector2D(0.f, 180.f), Dot);
+
+			// If the mapped dot product value less than or equal to the max angle HitActorOwner can face from the projectile
+			// then HitActorMagicChargeComp can accept magic charge
+			return MapDot <= FMath::Abs(HitActorMagicChargeComp.GetMaxOwnerFaceAwayFromChargeSource());
+		}
+	}
+
+	return true;
+}
 
 void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

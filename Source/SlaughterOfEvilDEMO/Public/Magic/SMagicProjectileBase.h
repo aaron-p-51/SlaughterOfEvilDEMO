@@ -10,6 +10,7 @@
 class UParticleSystem;
 class USphereComponent;
 class UMeshComponent;
+class USMagicChargeComponent;
 
 UCLASS()
 class SLAUGHTEROFEVILDEMO_API ASMagicProjectileBase : public AActor
@@ -64,10 +65,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCausesDamage : 1;
-
-	/** If blocking actor needs to face projectile to block it  */
-	UPROPERTY(EditAnywhere, Category = "Gameplay", meta = (EditCondition = "bCanBeBlocked"))
-	float MaxBlockAngle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	UParticleSystem* OnHitEffects;
@@ -145,6 +142,8 @@ private:
 	 * return true if magic charge was applied
 	 */
 	bool TryApplyMagicCharge(TArray<FHitResult>& HitResult);
+
+	bool HitActorCanAcceptMagicCharge(USMagicChargeComponent& HitActorMagicChargeComp);
 
 
 };
