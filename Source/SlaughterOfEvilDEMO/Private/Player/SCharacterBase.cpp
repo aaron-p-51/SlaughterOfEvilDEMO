@@ -74,119 +74,59 @@ void ASCharacterBase::BeginPlay()
 }
 
 
-//bool ASCharacterBase::TrySetMagicCharge(bool Charged)
-//{
-//	// Can not be magic charged if already charged
-//	if (GetLocalRole() == ENetRole::ROLE_Authority)
-//	{ 
-//		if (Charged && !bIsMagicCharged)
-//		{
-//			bIsMagicCharged = true;
-//			OnRep_IsMagicCharge();
-//			return true;
-//		}
-//		else if (!Charged && bIsMagicCharged)
-//		{
-//			bIsMagicCharged = false;
-//			OnRep_IsMagicCharge();
-//			return true;
-//		}
-//	}
-//
-//	return false;
-//}
-
-//void ASCharacterBase::OnRep_IsMagicCharge()
-//{
-//	if (bIsMagicCharged && IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
-//	{
-//		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
-//		if (MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon)
-//		{
-//			MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->ApplyMagicCharge();
-//		}
-//	}
-//}
-
 void ASCharacterBase::SpawnStartingWeapons()
 {
+
 	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
 	{
-		// Server needs first person and third person weapons (all collisions are from FPP)
-		if (GetLocalRole() == ENetRole::ROLE_Authority)
+		// TPP Weapon
+		FTransform WeaponSpawnTransformTPP(GetActorTransform());
+		MeleeWeaponData[i].TPPMeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformTPP));
+		if (MeleeWeaponData[i].TPPMeleeWeapon && GetMesh())
 		{
-			// FPP sword
-			FTransform WeaponSpawnTransform(GetActorTransform());
-			MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
-			if (MeleeWeaponData[i].MeleeWeapon && FirstPersonMesh)
-			{
-				MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
-				MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
-				MeleeWeaponData[i].MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-				MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_FirstPerson);
-				UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
-				
-			}
+			MeleeWeaponData[i].TPPMeleeWeapon->SetOwner(this);
+			MeleeWeaponData[i].TPPMeleeWeapon->SetInstigator(this);
+			MeleeWeaponData[i].TPPMeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
 
-			FTransform WeaponSpawnTransformTPP(GetActorTransform());
-			MeleeWeaponData[i].MeleeWeaponThirdPerson = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformTPP));
-			if (MeleeWeaponData[i].MeleeWeaponThirdPerson && GetMesh())
+			// Hide weapon, TPP weapon only shown for simulated proxies
+			if (IsLocallyControlled())
 			{
-				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetOwner(this);
-				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetInstigator(this);
-				MeleeWeaponData[i].MeleeWeaponThirdPerson->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-				MeleeWeaponData[i].MeleeWeaponThirdPerson->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_ThirdPerson);
-				UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeaponThirdPerson, WeaponSpawnTransformTPP);
+				MeleeWeaponData[i].TPPMeleeWeapon->SetWeaponVisibility(false);
 			}
-				
+			UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].TPPMeleeWeapon, WeaponSpawnTransformTPP);
 		}
 
-		//if (IsLocallyControlled() && GetLocalRole() < ENetRole::ROLE_Authority)
-		//{
-		//	// FPP sword
-		//	FTransform WeaponSpawnTransform(GetActorTransform());
-		//	MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
-		//	if (MeleeWeaponData[i].MeleeWeapon && FirstPersonMesh)
-		//	{
-		//		MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
-		//		MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
-		//		MeleeWeaponData[i].MeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-		//		
-
-		//		UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
-		//		MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_FirstPerson);
-		//	}
-		//}
-		//else if (!IsLocallyControlled())
-		//{
-		//	// FPP sword
-		//	FTransform WeaponSpawnTransform(GetActorTransform());
-		//	MeleeWeaponData[i].MeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransform));
-		//	if (MeleeWeaponData[i].MeleeWeapon && GetMesh())
-		//	{
-		//		MeleeWeaponData[i].MeleeWeapon->SetOwner(this);
-		//		MeleeWeaponData[i].MeleeWeapon->SetInstigator(this);
-		//		MeleeWeaponData[i].MeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-		//		
-
-		//		UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].MeleeWeapon, WeaponSpawnTransform);
-		//		MeleeWeaponData[i].MeleeWeapon->SetMeleeWeaponPerspective(EMeleeWeaponPerspective::EMWP_ThirdPerson);
-		//	}
-		//}
+		// TPP Weapon
+		FTransform WeaponSpawnTransformFPP(GetActorTransform());
+		MeleeWeaponData[i].FPPMeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformFPP));
+		if (MeleeWeaponData[i].FPPMeleeWeapon && FirstPersonMesh)
+		{
+			MeleeWeaponData[i].FPPMeleeWeapon->SetOwner(this);
+			MeleeWeaponData[i].FPPMeleeWeapon->SetInstigator(this);
+			MeleeWeaponData[i].FPPMeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
+			
+			// Hide weapon, FPP weapon only shown for autonomous proxies and actors with authority
+			if (!IsLocallyControlled())
+			{
+				MeleeWeaponData[i].FPPMeleeWeapon->SetWeaponVisibility(false);
+			}
+			UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].FPPMeleeWeapon, WeaponSpawnTransformFPP);
+		}
 	}
 
+	// Set the current weapon index based on which weapon has bIsStartingWeapon set.
 	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
 	{
 		if (MeleeWeaponData[i].bIsStartingWeapon && CurrentWeaponIndex == NO_WEAPON_SET)
 		{
 			CurrentWeaponIndex = i;
-			CurrentWeapon = MeleeWeaponData[i].MeleeWeapon;
 		}
 		else if (MeleeWeaponData[i].bIsStartingWeapon && CurrentWeaponIndex > NO_WEAPON_SET)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Multiple starting weapons set for %s. Starting weapon will be set to %s"), *GetName(), *MeleeWeaponData[i].MeleeWeaponClass->GetName());
 		}
 	}
+	
 }
 
 
@@ -211,10 +151,9 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis(TEXT("LookRight"), this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &APawn::AddControllerPitchInput);
 
-	PlayerInputComponent->BindAction(TEXT("Action"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponAction);
+	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponAttack);
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponBlockStart);
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::WeaponBlockStop);
-	
 }
 
 
@@ -230,7 +169,10 @@ void ASCharacterBase::MoveRight(float Value)
 }
 
 
-void ASCharacterBase::WeaponAction()
+/*************************************************************************/
+/* Melee Weapon Attack */
+/*************************************************************************/
+void ASCharacterBase::WeaponAttack()
 {
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
@@ -250,6 +192,7 @@ void ASCharacterBase::ServerTryMeleeAttack_Implementation()
 }
 
 
+// TODO: Replace with deterministic function, get rid of randomness
 EMeleeAttackDirection ASCharacterBase::GetMeleeAttackDirection() const
 {
 	int32 RandomSwingIndex = UKismetMathLibrary::RandomIntegerInRange(0, 1);
@@ -293,7 +236,7 @@ void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttac
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		// Damage window is only set from FPP on server
+		// Damage window is only set from FPP on server, damage can only be applied 
 		auto ServerFirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FirstPeronAttackMontages.Find(MeleeAttack);
 		if (ServerFirstPersonAttackMontage && FirstPersonAnimInstance)
 		{
@@ -343,9 +286,9 @@ void ASCharacterBase::OnMontageNotifyBeginTryApplyDamage(FName NotifyName, const
 		FirstPersonAnimInstance->OnPlayMontageNotifyBegin.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
 	}
 
-	if (GetLocalRole() == ENetRole::ROLE_Authority && CurrentWeapon)
+	if (GetLocalRole() == ENetRole::ROLE_Authority && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
 	{
-		CurrentWeapon->SetCanCauseDamage(true);
+		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(true);
 	}
 }
 
@@ -357,13 +300,16 @@ void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, con
 		FirstPersonAnimInstance->OnPlayMontageNotifyEnd.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);
 	}
 
-	if (GetLocalRole() == ENetRole::ROLE_Authority && CurrentWeapon)
+	if (GetLocalRole() == ENetRole::ROLE_Authority && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
 	{
-		CurrentWeapon->SetCanCauseDamage(false);
+		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(false);
 	}
 }
 
 
+/*************************************************************************/
+/* Melee Weapon Block */
+/*************************************************************************/
 void ASCharacterBase::WeaponBlockStart()
 {
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
@@ -393,7 +339,10 @@ void ASCharacterBase::WeaponBlockStop()
 void ASCharacterBase::ServerTrySetWeaponBlocking_Implementation(bool IsBlocking)
 {
 	bIsBlocking = IsBlocking;
-	MeleeWeaponData[CurrentWeaponIndex].MeleeWeapon->SetIsBlocking(IsBlocking);
+	if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
+	{
+		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetIsBlocking(IsBlocking);
+	}
 }
 
 
@@ -403,20 +352,49 @@ bool ASCharacterBase::IsBlocking()
 }
 
 
-void ASCharacterBase::SetWeaponMagicCharged(bool Charged)
+/*************************************************************************/
+/* Weapon magic charge change */
+/*************************************************************************/
+void ASCharacterBase::WeaponMagicChargeChange(bool Value)
 {
-	if (IsLocallyControlled() && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		bCurrentWeaponIsMagicCharged = Value;
+		OnRep_CurrentWeaponIsMagicCharged();
+	}
+}
+
+
+void ASCharacterBase::OnRep_CurrentWeaponIsMagicCharged()
+{
+	// Play animation to show impact, will only play for FPP
+	if (bCurrentWeaponIsMagicCharged && IsLocallyControlled() &&
+		FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
 	{
 		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
 	}
+
+	// Apply/Remove magic charge effects on TPPweapon
+	if (MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon)
+	{
+		bCurrentWeaponIsMagicCharged ? MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon->ApplyMagicChargeEffects() :
+			MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon->RemoveMagicChargeEffects();
+	}
+
+	// Apply/Remove magic charge effects on FPPweapon
+	if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
+	{
+		bCurrentWeaponIsMagicCharged ? MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->ApplyMagicChargeEffects() :
+			MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->RemoveMagicChargeEffects();
+	}
 }
+
 
 void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ASCharacterBase, bIsBlocking);
-
-
+	DOREPLIFETIME(ASCharacterBase, bCurrentWeaponIsMagicCharged);
 }
 

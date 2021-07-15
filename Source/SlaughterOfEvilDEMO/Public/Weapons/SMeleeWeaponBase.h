@@ -8,6 +8,7 @@
 
 class UCapsuleComponent;
 class USphereComponent;
+class USMagicChargeComponent;
 
 UENUM(BlueprintType)
 enum class EMeleeWeaponState : uint8
@@ -15,13 +16,6 @@ enum class EMeleeWeaponState : uint8
 	EMWS_Idle			UMETA(DisplayName="Idle"),
 	EMWS_Attacking		UMETA(DisplayName="Attacking"),
 	EMWS_Blocking		UMETA(DisplayName="Blocking")
-};
-
-UENUM(BlueprintType)
-enum class EMeleeWeaponPerspective : uint8
-{
-	EMWP_FirstPerson	UMETA(DisplayName="FirstPerson"),
-	EMWP_ThirdPerson	UMETA(DisplayName="ThirdPerson")
 };
 
 
@@ -34,27 +28,32 @@ class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
  * Members
  */
 
+public:
+
+
 protected:
 
 	/*************************************************************************/
 	/* Components*/
 	/*************************************************************************/
 
+	/** RootComp so MeshComp can be offset */
 	UPROPERTY(VisibleDefaultsOnly)
 	USceneComponent* RootComp;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	UStaticMeshComponent* MeshComp;
 
+	/** Collision Comp  */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	UCapsuleComponent* CollisionComp;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USMagicChargeComponent* MagicChargeComp;
 
 	/*************************************************************************/
 	/* State Variables */
 	/*************************************************************************/
-
-	//UPROPERTY(ReplicatedUsing=OnRep_SetMagicCharge, VisibleDefaultsOnly, BlueprintReadOnly)
-	//uint32 bIsMagicCharged : 1;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	EMeleeWeaponState MeleeWeaponState;
@@ -75,16 +74,25 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Damage")
 	TSubclassOf<UDamageType> DamageTypeClass;
 
+	/*************************************************************************/
+	/* Damage Calculations */
+	/*************************************************************************/
+
+	/** Position of CollisionComp last frame */
 	FVector PreviousCollisionCenter;
 
-	// Cached Trace arguments
+	// Cached Trace arguments for capsual trace
 	float TraceRadius;
 	float TraceHalfHeight;
 
+	/** Actors to ignore when doing weapon trace when MeleeWeaponState is EMWS_Attacking  */
 	UPROPERTY()
-	TArray<AActor*> TraceIgnoreActors;
+	TArray<AActor*> DamageTraceIgnoreActors;
+
+	/** Object types to detect when doing weapon trace when MeleeWeaponState is EMWS_Attacking */
 	UPROPERTY()
-	TArray<TEnumAsByte<EObjectTypeQuery>> CollisionObjectTypes;
+	TArray<TEnumAsByte<EObjectTypeQuery>> DamageCollisionObjectTypes;
+
 
 	FHitResult HitResult;
 
@@ -93,7 +101,11 @@ protected:
 	/* Gameplay */
 	/*************************************************************************/
 
-	EMeleeWeaponPerspective MeleeWeaponPerspective;
+	/**
+	 * Separate MeleeWeapons for TPP and FPP will be spawned. Visibility will be set based on need to show
+	 * for example if FPP then TPP weapon will not be visible
+	 */
+	uint32 bWeaponVisibility : 1;
 
 
  /**
@@ -103,35 +115,39 @@ protected:
 public:	
 	
 	/** Sets default values for this actor's properties */
-	ASMeleeWeaponBase();
+	ASMeleeWeaponBase(); 
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	/*************************************************************************/
-	/* Change Magic State */
+	/* Magic Effects */
 	/*************************************************************************/
 
-	//UFUNCTION()
-	//virtual void ApplyMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::ApplyMagicCharge, );
-
-	//UFUNCTION()
-	//virtual void RemoveMagicCharge() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicCharge, );
-
-	//UFUNCTION()
-	//virtual bool TrySetMagicCharge(bool Charged);
-
+	/**
+	 * [Server + Client] Apply effects to indicate magic charge state, effects should part of
+	 * child class
+	 */
 	UFUNCTION()
-	virtual bool TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState);
+	virtual void ApplyMagicChargeEffects() PURE_VIRTUAL(ASMeleeWeaponBase::ApplyMagicChargeEffects, );
+
+	/**
+	 * [Server + Client] Remove effects to indicate magic charge state, effects should part of
+	 * child class
+	 */
+	UFUNCTION()
+	virtual void RemoveMagicChargeEffects() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicChargeEffects, );
+
+
 
 
 	/*************************************************************************/
 	/* Accessors */
 	/*************************************************************************/
 
-	//UFUNCTION()
-	//virtual bool IsMagicCharged() const;
-
+	/**
+	 * [Server + Client] Get current MeleeWeaponState
+	 */
 	UFUNCTION()
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
 
@@ -139,11 +155,30 @@ public:
 	/* Gameplay */
 	/*************************************************************************/
 	
-	virtual void SetCanCauseDamage(bool CanDamage);
+	/**
+	 * [Server + Client] Set Weapon can cause damage, will change MeleeWeaponState to EMWS_Attacking
+	 * if CanDamage is set to false will set MeleeWeaponState to EMWS_Idle.
+	 * 
+	 * @param CanDamage		Should Melee Weapon apply damage upon CollisionComp trace hit detected
+	 * 
+	 * return success if MeleeWeapon changed to EMWS_Idle when CanDamage is false, or EMWS_Attacking when CanDamage is true 
+	 */
+	virtual bool SetCanCauseDamage(bool CanDamage);
 
-	virtual void SetIsBlocking(bool Blocking);
+	/**
+	* [Server + Client] Set Weapon can cause damage, will change MeleeWeaponState to EMWS_Blocking
+	* if Blocking is set to false will set MeleeWeaponState to EMWS_Idle.
+	*
+	* @param Blocking		Should Melee Weapon enable CollisionComp to query to detect collisions
+	*
+	* return success if MeleeWeapon changed to EMWS_Idle when CanDamage is Blocking, or EMWS_Blocking when Blocking is true
+	*/
+	virtual bool SetIsBlocking(bool Blocking);
 
-	void SetMeleeWeaponPerspective(EMeleeWeaponPerspective Perspective);
+	/**
+	 * [Server + Client] Set Weapon Visibility, bWeaponVisibility
+	 */
+	FORCEINLINE void SetWeaponVisibility(bool Value) { bWeaponVisibility = Value; }
 
 
 protected:
@@ -151,15 +186,41 @@ protected:
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 
-	//UFUNCTION()
-	//virtual void OnRep_SetMagicCharge();
 
 private:
 
-	virtual bool CheckForCollision();
+	/*************************************************************************/
+	/* Compute and apply damage */
+	/*************************************************************************/
 
+	/**
+	 * [Server] Check for a hit detected when weapon is attacking
+	 * return was a hit detected
+	 */
+	virtual bool CheckForAttackTraceCollision();
+
+	/**
+	 * [Server] Cache data need to perfrom trace in CheckForAttackTraceCollision
+	 */
 	void CacheDamageTraceArguments();
 
+	/*************************************************************************/
+	/* Magic */
+	/*************************************************************************/
+	
+	/**
+	 * [Server] Bound to MagicChargeComp delegate. Is called with magic charge state changes in MagicChargeComp
+	 */
+	UFUNCTION()
+	void OnMagicChargeChange(bool Charged);
 
+	/**
+	* [Server + Client] Try and Set Melee Weapon State.
+	* @param NewMeleeWeaponState		Melee Weapon state to change to
+	*
+	* return success of setting NewMeleeWeaponState
+	*/
+	UFUNCTION()
+	virtual bool TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState);
 
 };

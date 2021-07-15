@@ -28,7 +28,6 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	if (SphereComp)
 	{
 		SetRootComponent(SphereComp);
-		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
 	}
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
@@ -38,7 +37,7 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	}
 
 
-	// Set defaults
+	// Set defaults (if errors are found try setting in BeginPlay()
 	InitialSpeed = 10.f;
 	Mass = 1.f;
 	Drag = 0.f;
@@ -62,6 +61,11 @@ void ASMagicProjectileBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (SphereComp)
+	{
+		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
+	}
+
 	// Set projectile initial velocity
 	Velocity = GetActorForwardVector() * InitialSpeed;
 
@@ -75,8 +79,6 @@ void ASMagicProjectileBase::BeginPlay()
 	{
 		DragEffect = Drag / Mass;
 	}
-
-
 }
 
 
@@ -85,8 +87,10 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Movement is not replicated. All clients will move projectile on their own
 	CalculateMovement(DeltaTime);
 
+	// Hits will be detected on all clients, only server will apply damage and try to set magic charge state on hit actors
 	if (DetectHit())
 	{
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
@@ -131,6 +135,7 @@ bool ASMagicProjectileBase::DetectHit()
 
 	TArray<FHitResult> HitResults;
 
+	// Sphere trace from previous position to position projectile will move to at the end of this frame 
 	bool bHitDetected = UKismetSystemLibrary::SphereTraceMulti(
 		this,
 		PreviousPosition,
@@ -165,6 +170,7 @@ bool ASMagicProjectileBase::DetectHit()
 }
 
 
+//TODO: if hit multiple actors(player and longsword) if longsword has successful magic charge set do not apple damage to player
 bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
 {
 	for (auto HitResult : HitResult)
@@ -173,7 +179,11 @@ bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
 		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
 		if (ActorMagicChargeComp)
 		{
-			ActorMagicChargeComp->TrySetMagicCharge(true);
+			bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(true);
+			if (AppliedCharge)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("%s is now charged"), *HitResult.GetActor()->GetName());
+			}
 		}
 	}
 

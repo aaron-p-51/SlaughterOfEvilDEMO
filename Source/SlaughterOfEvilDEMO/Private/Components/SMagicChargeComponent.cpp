@@ -6,7 +6,7 @@
 // Sets default values for this component's properties
 USMagicChargeComponent::USMagicChargeComponent()
 {
-
+	bIsMagicCharged = false;
 
 }
 
@@ -18,7 +18,7 @@ void USMagicChargeComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// ...
+	
 	
 }
 
@@ -30,12 +30,13 @@ bool USMagicChargeComponent::TrySetMagicCharge(bool Charged)
 		if (Charged && !bIsMagicCharged)
 		{
 			bIsMagicCharged = true;
-			UE_LOG(LogTemp, Warning, TEXT("Set bIsMagicCharged"));
+			OnMagicChargeChange.Broadcast(bIsMagicCharged);
 			return true;
 		}
 		else if (!Charged && bIsMagicCharged)
 		{
 			bIsMagicCharged = false;
+			OnMagicChargeChange.Broadcast(bIsMagicCharged);
 			return true;
 		}
 	}

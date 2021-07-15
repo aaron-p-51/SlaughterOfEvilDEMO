@@ -7,6 +7,9 @@
 #include "SMagicChargeComponent.generated.h"
 
 
+// OnMagicChargeChanged event
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMagicChargeChangeSignature, bool, IsMagicCharged);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SLAUGHTEROFEVILDEMO_API USMagicChargeComponent : public UActorComponent
 {
@@ -28,6 +31,9 @@ public:
 	USMagicChargeComponent();
 
 	bool TrySetMagicCharge(bool Charged);
+
+	UPROPERTY()
+	FOnMagicChargeChangeSignature OnMagicChargeChange;
 
 protected:
 	// Called when the game starts

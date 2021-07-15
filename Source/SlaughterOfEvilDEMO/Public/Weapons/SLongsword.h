@@ -29,8 +29,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterialInstanceDynamic* MeshDynamicMaterial;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	USMagicChargeComponent* MagicChargeComp;
+
 
 /**
  * Methods
@@ -40,23 +39,23 @@ protected:
 
 	 ASLongsword();
 
-	 // Called every frame
-	 virtual void Tick(float DeltaTime) override;
+
 
 	/*************************************************************************/
 	/* Change Magic State */
 	/*************************************************************************/
 
-	/*virtual void ApplyMagicCharge() override;
+	virtual void ApplyMagicChargeEffects() override;
 
-	virtual void RemoveMagicCharge() override;*/
-
-
-	/* virtual void OnRep_SetMagicCharge() override;*/
+	virtual void RemoveMagicChargeEffects() override;
 
 
 protected:
 
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
+
+
+
+
 };

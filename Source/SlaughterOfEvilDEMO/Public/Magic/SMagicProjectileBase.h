@@ -23,9 +23,15 @@ class SLAUGHTEROFEVILDEMO_API ASMagicProjectileBase : public AActor
 
 protected:
 
+	/*************************************************************************/
+	/* Components*/
+	/*************************************************************************/
+
+	/** Collisions */
 	UPROPERTY(VisibleAnywhere)
 	USphereComponent* SphereComp;
 
+	/** Can be null, used really for debug purposes */
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* MeshComp;
 
@@ -59,12 +65,14 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCausesDamage : 1;
 
-	UPROPERTY(EditAnywhere, Category = "Gameplay")
+	/** If blocking actor needs to face projectile to block it  */
+	UPROPERTY(EditAnywhere, Category = "Gameplay", meta = (EditCondition = "bCanBeBlocked"))
 	float MaxBlockAngle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	UParticleSystem* OnHitEffects;
 
+	/** Collision Channel used to detect hits */
 	UPROPERTY(EditDefaultsOnly)
 	TEnumAsByte<ECollisionChannel> CollisionChannel;
 
@@ -80,9 +88,11 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	FVector Velocity;
 
+	/** Position projectile should move to this frame */
 	UPROPERTY(BlueprintReadOnly)
 	FVector NextPosition;
 
+	/** Position of projectile last frame */
 	UPROPERTY(BlueprintReadOnly)
 	FVector PreviousPosition;
 
@@ -112,10 +122,28 @@ protected:
 
 private:
 
+	/**
+	 * Calculate projectile movement this frame
+	 * @param DeltaTime			Time between frames
+	 */
 	void CalculateMovement(float DeltaTime);
 
+	/**
+	 * Detect if hit will occur when projectile moves. A hit will be detected from a sphere trace 
+	 * between PreviousPosition and NextPosition
+	 * 
+	 * return	ture if at least one actor was detected
+	 */
 	bool DetectHit();
 
+	/**
+	 * TODO: if hit multiple actors (player and longsword) if longsword has successful magic charge set do not apple damage to player
+	 * 
+	 * If hit is detected try and apply magic charge to actor if actor has USMagicChargeComponent
+	 * @params HitResult	All actors that were detect from DetectHit
+	 * 
+	 * return true if magic charge was applied
+	 */
 	bool TryApplyMagicCharge(TArray<FHitResult>& HitResult);
 
 
