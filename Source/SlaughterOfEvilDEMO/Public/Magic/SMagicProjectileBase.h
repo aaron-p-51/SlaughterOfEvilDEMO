@@ -134,16 +134,30 @@ private:
 	bool DetectHit();
 
 	/**
-	 * TODO: if hit multiple actors (player and longsword) if longsword has successful magic charge set do not apple damage to player
+	 * TODO: if hit multiple actors (player and longsword) if longsword has successful magic charge set do not apply damage to player
 	 * 
-	 * If hit is detected try and apply magic charge to actor if actor has USMagicChargeComponent
+	 * [Server] If hit is detected try and apply magic charge to actor if actor has USMagicChargeComponent
 	 * @params HitResult	All actors that were detect from DetectHit
 	 * 
 	 * return true if magic charge was applied
 	 */
-	bool TryApplyMagicCharge(TArray<FHitResult>& HitResult);
+	bool TryApplyMagicCharge(TArray<FHitResult>& HitResults);
 
+	/**
+	 * [Server] Verify the hit actor can take magic charge based on parameters set in MagicChargeComp
+	 * @param HitActors MagicChargeComponent
+	 * 
+	 * return Actor can accept magic charge
+	 */
 	bool HitActorCanAcceptMagicCharge(USMagicChargeComponent& HitActorMagicChargeComp);
+
+	/**
+	 * [Client + Server] Get the closest Actors HitResult to this actors position. HitResults generated in trace done by DetectHit()
+	 * @param HitResults	All actors hit in last call to DetectHit
+	 * 
+	 * return HitResult of closest Actor Hit
+	 */
+	FHitResult GetFirstHitActorHitResult(TArray<FHitResult>& HitResults);
 
 
 };

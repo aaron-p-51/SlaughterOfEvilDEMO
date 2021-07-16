@@ -312,6 +312,8 @@ void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, con
 /*************************************************************************/
 void ASCharacterBase::WeaponBlockStart()
 {
+	
+
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
 		ServerTrySetWeaponBlocking(true);

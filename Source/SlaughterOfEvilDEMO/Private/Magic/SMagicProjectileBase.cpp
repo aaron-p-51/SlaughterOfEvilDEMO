@@ -152,11 +152,11 @@ bool ASMagicProjectileBase::DetectHit()
 
 	if (bHitDetected)
 	{
-		
-		/*if (OnHitEffects)
+		if (OnHitEffects)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, HitResult.Location, UKismetMathLibrary::MakeRotFromX(HitResult.Normal));
-		}*/
+			FHitResult FirstHitActorResult = GetFirstHitActorHitResult(HitResults);
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, FirstHitActorResult.Location, UKismetMathLibrary::MakeRotFromX(FirstHitActorResult.Normal));
+		}
 
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
@@ -170,10 +170,33 @@ bool ASMagicProjectileBase::DetectHit()
 }
 
 
-//TODO: if hit multiple actors(player and longsword) if longsword has successful magic charge set do not apple damage to player
-bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
+FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& HitResults)
 {
-	for (auto HitResult : HitResult)
+	float ClosestDistance = NAN;
+	FHitResult Result;
+
+	for (auto HitResult : HitResults)
+	{
+		auto HitLocation = HitResult.Location;
+
+		float DistanceToHitHitLocation = FVector::DistSquared(HitLocation, GetActorLocation());
+		if (ClosestDistance == NAN || DistanceToHitHitLocation < ClosestDistance)
+		{
+			ClosestDistance = DistanceToHitHitLocation;
+			Result = HitResult;
+			
+		}
+		
+	}
+
+	return Result;
+}
+
+
+//TODO: if hit multiple actors(player and longsword) if longsword has successful magic charge set do not apple damage to player
+bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResults)
+{
+	for (auto HitResult : HitResults)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitResult.GetActor()->GetName());
 		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
@@ -219,6 +242,7 @@ bool ASMagicProjectileBase::HitActorCanAcceptMagicCharge(USMagicChargeComponent&
 
 	return true;
 }
+
 
 void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
