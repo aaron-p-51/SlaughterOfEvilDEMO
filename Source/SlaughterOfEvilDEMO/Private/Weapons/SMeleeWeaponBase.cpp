@@ -201,6 +201,26 @@ EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
 }
 
 
+bool ASMeleeWeaponBase::GetIsWeaponMagicCharged()
+{
+	if (MagicChargeComp)
+	{
+		return MagicChargeComp->IsMagicCharged();
+	}
+
+	return false;
+}
+
+bool ASMeleeWeaponBase::TEMP_DELETE_ME_ApplyMagic()
+{
+	if (MagicChargeComp)
+	{
+		return MagicChargeComp->TrySetMagicCharge(false);
+	}
+
+	return false;
+}
+
 bool ASMeleeWeaponBase::SetCanCauseDamage(bool CanDamage)
 {
 	if (CanDamage)

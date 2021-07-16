@@ -24,6 +24,18 @@ enum class EMeleeAttackDirection : uint8
 	EMAD_RightDown		UMETA(DisplayName = "RightDown")
 };
 
+UENUM(BlueprintType)
+enum class EMagicUseState : uint8
+{
+	EMUS_NoCharge		UMETA(DisplayName = "NoCharge"),
+	EMUS_Idle			UMETA(DisplayName = "Idle"),
+	EMUS_Start			UMETA(DisplayName = "Start"),
+	EMUS_Ready			UMETA(DisplayName = "Ready"),
+	EMUS_Finish			UMETA(DisplayName = "Finish")
+};
+
+
+
 /**
  * Melee Weapon data:
  *		A FPP and TPP weapon will exist for each player. Depending of the players perspective only the proper weapon will be shown
@@ -127,6 +139,10 @@ protected:
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentWeaponIsMagicCharged)
 	uint32 bCurrentWeaponIsMagicCharged : 1;
 
+	UPROPERTY(Replicated)
+	EMagicUseState MagicUseState;
+
+
 private:
 
 	/** Last melee attack direction TODO: remove this and make next melee attack deterministic (faster control for clients) */
@@ -185,6 +201,23 @@ public:
 	UFUNCTION(BlueprintPure)
 	virtual bool IsBlocking() override;
 
+	/*************************************************************************/
+	/* Weapon Magic*/
+	/*************************************************************************/
+
+	UFUNCTION()
+	void StartWeaponMagicProjectile();
+
+	UFUNCTION(Server, Reliable)
+	void ServerStartWeaponMagicProjectile();
+
+	UFUNCTION()
+	void FinishWeaponMagicProjectile();
+
+	UFUNCTION(Server, Reliable)
+	void ServerFinishWeaponMagicProjectile(float ProjectilePitch);
+
+
 
 	/*************************************************************************/
 	/* ISMeleeWeaponWielder overloads*/
@@ -226,5 +259,8 @@ private:
 	/** Spawn starting weapons, all weapons in MeleeWeaponData will be spawned and attach the FPP and TPP meshes */
 	UFUNCTION(BlueprintCallable)
 	void SpawnStartingWeapons();
+
+	UFUNCTION()
+	bool TrySetMagicUseState(EMagicUseState NewMagicUseState);
 
 };

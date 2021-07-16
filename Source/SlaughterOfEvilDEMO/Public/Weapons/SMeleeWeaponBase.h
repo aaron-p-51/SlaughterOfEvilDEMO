@@ -151,6 +151,17 @@ public:
 	UFUNCTION()
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
 
+	/**
+	 * [Server] Get if this weapon is magic charged
+	 */
+	UFUNCTION()
+	bool GetIsWeaponMagicCharged();
+
+	UFUNCTION()
+	bool TEMP_DELETE_ME_ApplyMagic();
+
+
+
 	/*************************************************************************/
 	/* Gameplay */
 	/*************************************************************************/

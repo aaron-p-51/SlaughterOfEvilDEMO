@@ -47,6 +47,7 @@ ASCharacterBase::ASCharacterBase()
 	
 	
 	CurrentWeaponIndex = NO_WEAPON_SET;
+	MagicUseState = EMagicUseState::EMUS_Idle;
 	
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -130,6 +131,8 @@ void ASCharacterBase::SpawnStartingWeapons()
 }
 
 
+
+
 // Called every frame
 void ASCharacterBase::Tick(float DeltaTime)
 {
@@ -152,8 +155,14 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &APawn::AddControllerPitchInput);
 
 	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponAttack);
+
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponBlockStart);
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::WeaponBlockStop);
+
+	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Pressed, this, &ASCharacterBase::StartWeaponMagicProjectile);
+	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Released, this, &ASCharacterBase::FinishWeaponMagicProjectile);
+
+
 }
 
 
@@ -354,13 +363,119 @@ bool ASCharacterBase::IsBlocking()
 }
 
 
+
+
 /*************************************************************************/
-/* Weapon magic charge change */
+/* Weapon magic  */
 /*************************************************************************/
+
+void ASCharacterBase::StartWeaponMagicProjectile()
+{
+	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	{
+		ServerStartWeaponMagicProjectile();
+	}
+	else
+	{
+		ServerStartWeaponMagicProjectile_Implementation();
+	}
+}
+
+
+
+
+void ASCharacterBase::ServerStartWeaponMagicProjectile_Implementation()
+{
+	// Check if the FPP weapon is magic charged (bCurrentWeaponIsMagicCharged is only used to
+	// set cosmetic on clients
+	if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->GetIsWeaponMagicCharged())
+	{
+		bool success = MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->TEMP_DELETE_ME_ApplyMagic();
+		UE_LOG(LogTemp, Warning, TEXT("Removed Magic Charge: %d"), success);
+	}
+	
+}
+
+
+
+
+
+void ASCharacterBase::FinishWeaponMagicProjectile()
+{
+
+}
+
+
+void ASCharacterBase::ServerFinishWeaponMagicProjectile_Implementation(float ProjectilePitch)
+{
+
+}
+
+bool ASCharacterBase::TrySetMagicUseState(EMagicUseState NewMagicUseState)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		if (!MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon) return false;
+		bool FPPWeaponMagicCharged = MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->GetIsWeaponMagicCharged();
+
+		switch (NewMagicUseState)
+		{
+		case EMagicUseState::EMUS_NoCharge:
+			if (!FPPWeaponMagicCharged)
+			{
+				MagicUseState = EMagicUseState::EMUS_NoCharge;
+				return true;
+			}
+			break;
+		case EMagicUseState::EMUS_Idle:
+			if (FPPWeaponMagicCharged)
+			{
+				MagicUseState = EMagicUseState::EMUS_Idle;
+				return true;
+			}
+			break;
+		case EMagicUseState::EMUS_Start:
+			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Idle)
+			{
+				MagicUseState = EMagicUseState::EMUS_Start;
+				return true;
+			}
+			break;
+		case EMagicUseState::EMUS_Ready:
+			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Start)
+			{
+				MagicUseState = EMagicUseState::EMUS_Ready;
+				return true;
+			}
+			break;
+		case EMagicUseState::EMUS_Finish:
+			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Ready)
+			{
+				MagicUseState = EMagicUseState::EMUS_Finish;
+				return true;
+			}
+			break;
+		default:
+			return false;
+			break;
+		}
+	}
+
+	return false;
+}
+
 void ASCharacterBase::WeaponMagicChargeChange(bool Value)
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
+		// Not magic charged
+		if (!Value)
+		{
+			bool success = TrySetMagicUseState(EMagicUseState::EMUS_NoCharge);
+#if WITH_EDITOR
+			if (!success) UE_LOG(LogTemp, Warning, TEXT("Player: %s, is no longer has magic charged weapon, fail to set MagicUseState to EMUS_NoCharge"), *GetName());
+#endif
+		}
 		bCurrentWeaponIsMagicCharged = Value;
 		OnRep_CurrentWeaponIsMagicCharged();
 	}
