@@ -70,17 +70,29 @@ struct FMeleeWeaponData
 	 * Attach montages for FPP. Montages should include notify begin and end points to indicate when damage can be applied
 	 * These montages will play on players character on server
 	 */
-	UPROPERTY(EditDefaultsOnly)
-	TMap<EMeleeAttackDirection, UAnimMontage*> FirstPeronAttackMontages;
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
+	TMap<EMeleeAttackDirection, UAnimMontage*> FPPAttackMontages;
 
 	/**
 	 * Attach montages for TPP. Montages are only for aesthetics on Simulated proxies.
 	 */
-	UPROPERTY(EditDefaultsOnly)
-	TMap<EMeleeAttackDirection, UAnimMontage*> ThirdPeronAttackMontages;
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
+	TMap<EMeleeAttackDirection, UAnimMontage*> TPPAttackMontages;
+
+	/** Animation montage for FPP when starting to use magic (charging to use) */
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
+	UAnimMontage* FPPMagicStartMontage;
+
+	/** Animation montage for FPP to use magic, done after fully charged (FPPMagicStartMontage)  */
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
+	UAnimMontage* FPPMagicFinishMontage;
+
+	/** Animation montage for TPP to use magic projectile (does not have charge and use montages like FPP) */
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
+	UAnimMontage* TPPUseMagicMontage;
 
 	/** Impact montage when weapon is blocking, will only play on locally controlled character (FPP) */
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Block | First Person")
 	UAnimMontage* BlockImpactMontage;
 };
 
@@ -217,6 +229,15 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerFinishWeaponMagicProjectile(float ProjectilePitch);
 
+	UFUNCTION()
+	void ShootWeaponMagicProjectile();
+
+	//UFUNCTION()
+	//void SetMagicProjectileReady(UAnimMontage* Montage, bool bInterrupted);
+
+	//UFUNCTION()
+	//void MagicProjectileUseInterrupted(UAnimMontage* Montage, bool bInterrupted);
+
 
 
 	/*************************************************************************/
@@ -225,6 +246,12 @@ public:
 	
 	/** Called when the current equipped weapon changes its magic charge state */
 	virtual void WeaponMagicChargeChange(bool Value) override;
+
+	UFUNCTION()
+	bool TrySetMagicUseState(EMagicUseState NewMagicUseState);
+
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE EMagicUseState GetMagicUseState() const { return MagicUseState; }
 
 
 protected:
@@ -260,7 +287,8 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void SpawnStartingWeapons();
 
-	UFUNCTION()
-	bool TrySetMagicUseState(EMagicUseState NewMagicUseState);
+	bool IsCurrentMeleeWeaponMagicCharged() const;
+
+
 
 };

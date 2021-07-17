@@ -8,7 +8,7 @@
 
 class UMaterialInstanceDynamic;
 class USMagicChargeComponent;
-
+class ASMagicProjectileBase;
 
 /**
  * 
@@ -29,7 +29,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterialInstanceDynamic* MeshDynamicMaterial;
 
-
+	/**  */
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class ASMagicProjectileBase> MagicProjectile;
 
 /**
  * Methods
@@ -48,6 +50,8 @@ protected:
 	virtual void ApplyMagicChargeEffects() override;
 
 	virtual void RemoveMagicChargeEffects() override;
+
+	virtual void ReleaseMagicCharge(FTransform& ReleaseTransform) override;
 
 
 protected:

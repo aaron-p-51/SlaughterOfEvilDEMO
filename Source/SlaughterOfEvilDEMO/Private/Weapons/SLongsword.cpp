@@ -7,8 +7,9 @@
 #include "Materials/MaterialInstanceDynamic.h"
 
 // Game Includes
-
+#include "Magic/SMagicProjectileBase.h"
 #include "SMeleeWeaponWielder.h"
+#include "Components/SMagicChargeComponent.h"
 
 ASLongsword::ASLongsword()
 {
@@ -54,6 +55,15 @@ void ASLongsword::RemoveMagicChargeEffects()
 	}
 }
 
+void ASLongsword::ReleaseMagicCharge(FTransform& ReleaseTransform)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority && MagicChargeComp)
+	{
+		MagicChargeComp->TrySetMagicCharge(false);
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ReleaseMagicCharge"));
+}
 
 
 

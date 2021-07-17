@@ -121,7 +121,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	/*************************************************************************/
-	/* Magic Effects */
+	/* Magic  */
 	/*************************************************************************/
 
 	/**
@@ -138,7 +138,8 @@ public:
 	UFUNCTION()
 	virtual void RemoveMagicChargeEffects() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicChargeEffects, );
 
-
+	UFUNCTION()
+	virtual void ReleaseMagicCharge(FTransform& ReleaseTransform) PURE_VIRTUAL(ASMeleeWeaponBase::ReleaseMagicCharge, );
 
 
 	/*************************************************************************/
@@ -211,7 +212,7 @@ private:
 	virtual bool CheckForAttackTraceCollision();
 
 	/**
-	 * [Server] Cache data need to perfrom trace in CheckForAttackTraceCollision
+	 * [Server] Cache data need to perform trace in CheckForAttackTraceCollision
 	 */
 	void CacheDamageTraceArguments();
 
