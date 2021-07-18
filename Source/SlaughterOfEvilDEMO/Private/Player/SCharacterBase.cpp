@@ -131,14 +131,25 @@ void ASCharacterBase::SpawnStartingWeapons()
 }
 
 
-
 // Called every frame
 void ASCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (IsLocallyControlled() == false && Camera != nullptr)
+	{
+		FRotator NewRot = Camera->GetRelativeRotation();
+		NewRot.Pitch = RemoteViewPitch * 360.f / 255.f;
+
+		Camera->SetRelativeRotation(NewRot);
+	}
 }
 
+
+FRotator ASCharacterBase::GetRemotePitchView() const
+{
+	return Camera ? Camera->GetRelativeRotation() : FRotator::ZeroRotator;
+}
 
 // Called to bind functionality to input
 void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -158,8 +169,8 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponBlockStart);
 	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::WeaponBlockStop);
 
-	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Pressed, this, &ASCharacterBase::StartWeaponMagicProjectile);
-	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Released, this, &ASCharacterBase::FinishWeaponMagicProjectile);
+	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Pressed, this, &ASCharacterBase::StartUseWeaponMagic);
+	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Released, this, &ASCharacterBase::FinishUseWeaponMagic);
 
 
 }
@@ -318,6 +329,7 @@ void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, con
 /*************************************************************************/
 /* Melee Weapon Block */
 /*************************************************************************/
+
 void ASCharacterBase::WeaponBlockStart()
 {
 	
@@ -366,23 +378,15 @@ bool ASCharacterBase::IsBlocking()
 /* Weapon magic  */
 /*************************************************************************/
 
-
-void ASCharacterBase::StartWeaponMagicProjectile()
+void ASCharacterBase::StartUseWeaponMagic()
 {
-	if (GetLocalRole() < ENetRole::ROLE_Authority)
-	{
-		ServerStartWeaponMagicProjectile();
-	}
-	else
-	{
-		ServerStartWeaponMagicProjectile_Implementation();
-	}
+	(GetLocalRole() < ENetRole::ROLE_Authority) ? ServerStartUseWeaponMagic() : ServerStartUseWeaponMagic_Implementation();
+
 }
 
 
-void ASCharacterBase::ServerStartWeaponMagicProjectile_Implementation()
+void ASCharacterBase::ServerStartUseWeaponMagic_Implementation()
 {
-	// Verify FPP Melee Weapon is set and currently is magic charged
 	if (IsCurrentMeleeWeaponMagicCharged())
 	{
 		// Try and set Magic use state to start using magic
@@ -390,43 +394,65 @@ void ASCharacterBase::ServerStartWeaponMagicProjectile_Implementation()
 		
 		if (MagicUseState == EMagicUseState::EMUS_Start && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage)
 		{
-				FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+			// FirstFPP anim montage contains notifies to progress through MagicUseState
+			FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+			MulticastPlayStarUsetWeaponMagic();
 		}
 	}	
 }
 
 
-void ASCharacterBase::FinishWeaponMagicProjectile()
+void ASCharacterBase::MulticastPlayStarUsetWeaponMagic_Implementation()
+{
+	// Play corresponding animations for non authority for FPP and TPP 
+	PlayMontagePairTPPandFPP(MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage,
+		MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+}
+
+
+void ASCharacterBase::FinishUseWeaponMagic()
 {
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
-		ServerFinishWeaponMagicProjectile(0.f); // TODOE add projectile pitch
+		ServerFinishUseWeaponMagic();
 	}
-	else
+	
+	// If trying to finish using melee weapon magic before it is ready. Stop FPPMagicStartMontage
+	if (MagicUseState != EMagicUseState::EMUS_Ready)
 	{
-		ServerFinishWeaponMagicProjectile_Implementation(0.f);
+		FirstPersonAnimInstance->Montage_Stop(0.35f, MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+		return;
 	}
-}
 
-
-void ASCharacterBase::ServerFinishWeaponMagicProjectile_Implementation(float ProjectilePitch)
-{
-	if (IsCurrentMeleeWeaponMagicCharged() && MagicUseState == EMagicUseState::EMUS_Ready && 
-		FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage)
+	if (GetLocalRole() == ENetRole::ROLE_Authority && IsCurrentMeleeWeaponMagicCharged() &&
+		MagicUseState == EMagicUseState::EMUS_Ready && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage)
 	{
+		// FirstFPP anim montage contains notifies to progress through MagicUseState
 		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage);
+		MulticastPlayFinishUseWeaponMagic();
 	}
 }
 
 
+void ASCharacterBase::ServerFinishUseWeaponMagic_Implementation()
+{
+	FinishUseWeaponMagic();
+}
 
-void ASCharacterBase::ShootWeaponMagicProjectile()
+
+void ASCharacterBase::MulticastPlayFinishUseWeaponMagic_Implementation()
+{	
+	// Play corresponding animations for non authority for FPP and TPP 
+	PlayMontagePairTPPandFPP(MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage,
+		MeleeWeaponData[CurrentWeaponIndex].TPPMagicFinishMontage);
+}
+
+
+void ASCharacterBase::ReleaseWeaponMagic()
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		// Set Magic Charge on wepaon to false
-
-		// Temp use camera, only for testing on server
+		// Camera transform is used for release point of magic
 		if (Camera)
 		{
 			FTransform ProjectileSpawnTransform = Camera->GetComponentTransform();
@@ -479,14 +505,13 @@ bool ASCharacterBase::TrySetMagicUseState(EMagicUseState NewMagicUseState)
 			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Ready)
 			{
 				MagicUseState = EMagicUseState::EMUS_Finish;
-				ShootWeaponMagicProjectile();
-
+				ReleaseWeaponMagic();
 				return true;
 			}
 			break;
 		default:
 			return false;
-			break;
+			//break;
 		}
 	}
 
@@ -546,9 +571,27 @@ void ASCharacterBase::OnRep_CurrentWeaponIsMagicCharged()
 }
 
 
+/*************************************************************************/
+/* Helpers  */
+/*************************************************************************/
+
 bool ASCharacterBase::IsCurrentMeleeWeaponMagicCharged() const
 {
 	return (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->GetIsWeaponMagicCharged());
+}
+
+
+void ASCharacterBase::PlayMontagePairTPPandFPP(UAnimMontage* FPPMontage, UAnimMontage* TPPMontage) const
+{
+
+	if (GetLocalRole() < ENetRole::ROLE_Authority && IsLocallyControlled() && FirstPersonAnimInstance && FPPMontage)
+	{
+		FirstPersonAnimInstance->Montage_Play(FPPMontage);
+	}
+	else if (!IsLocallyControlled() && ThirdPersonAnimInstance && TPPMontage)
+	{
+		ThirdPersonAnimInstance->Montage_Play(TPPMontage);
+	}
 }
 
 
@@ -558,5 +601,6 @@ void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 
 	DOREPLIFETIME(ASCharacterBase, bIsBlocking);
 	DOREPLIFETIME(ASCharacterBase, bCurrentWeaponIsMagicCharged);
+	DOREPLIFETIME(ASCharacterBase, MagicUseState);
 }
 

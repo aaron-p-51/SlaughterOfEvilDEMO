@@ -37,35 +37,25 @@ protected:
 	UStaticMeshComponent* MeshComp;
 
 	/*****************************************************************/
-	/* Movement Configuration */
-	/*****************************************************************/
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn="true"))
-	float InitialSpeed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	float Mass;
-
-	/** Drag of projectile (N) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	float Drag;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	FVector Gravity;
-
-	/*****************************************************************/
 	/* Gameplay */
 	/*****************************************************************/
 
+	/** Base damage this projectile will cause upon impact */
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	float BaseDamage;
 
+	/**
+	 * Is it possible for anoter actor to block this projectile. Blocking could be not taking
+	 * damage or magic charging
+	 */
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCanBeBlocked : 1;
 
+	/** Upon impact that is not blocked will this projectile cause damage */
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
 	uint32 bCausesDamage : 1;
 
+	/** Effects to emit upon collision */
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	UParticleSystem* OnHitEffects;
 
@@ -73,15 +63,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TEnumAsByte<ECollisionChannel> CollisionChannel;
 
-protected:
-
 	/*****************************************************************/
 	/* Status */
 	/*****************************************************************/
 
+	/** Current acceleration this frame */
 	UPROPERTY(BlueprintReadOnly)
 	FVector Acceleration;
 
+	/** Current velocity this frame */
 	UPROPERTY(BlueprintReadOnly)
 	FVector Velocity;
 
@@ -93,13 +83,31 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	FVector PreviousPosition;
 
-	/** Effect drag has on mass Drag/Mass (N/m) */
-	UPROPERTY(BlueprintReadOnly)
-	float DragEffect;
-
 	/** Radius to detect hit, will be radius of SphereComp */
 	UPROPERTY(BlueprintReadOnly)
 	float SphereTraceRadius;
+
+public:
+
+	/*****************************************************************/
+	/* Movement Configuration */
+	/*****************************************************************/
+
+	/** Initial speed of projectile when spawned, will not have any effect if changed after spawning */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	float InitialSpeed;
+
+	/** Mass of projectile, can be changed during life of projectile */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	float Mass;
+
+	/** Drag of projectile (N), can be changed during life of projectile */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	float Drag;
+
+	/** Effect of gravity on projectile, can be changed during life of projectile */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
+	FVector Gravity;
 
  /**
   * Methods
@@ -107,11 +115,13 @@ protected:
 
 
 public:	
-	// Sets default values for this actor's properties
+
+	/**  Sets default values for this actor's properties */
 	ASMagicProjectileBase();
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
 
 protected:
 	// Called when the game starts or when spawned
@@ -120,36 +130,34 @@ protected:
 private:
 
 	/**
-	 * Calculate projectile movement this frame
+	 * [Server + Client] Calculate projectile movement this frame, movement is not replicated, all clients
+	 * will move the projectile themselves
+	 * 
 	 * @param DeltaTime			Time between frames
 	 */
 	void CalculateMovement(float DeltaTime);
 
 	/**
-	 * Detect if hit will occur when projectile moves. A hit will be detected from a sphere trace 
-	 * between PreviousPosition and NextPosition
+	 * [Server + Client] Detect if hit will occur when projectile moves from PreviousPosition to NextPosition.
 	 * 
 	 * return	ture if at least one actor was detected
 	 */
 	bool DetectHit();
 
 	/**
-	 * TODO: if hit multiple actors (player and longsword) if longsword has successful magic charge set do not apply damage to player
-	 * 
+	 * [Server + Client] Emit OnHitEffects
+	 * @param HitResults	Results from trace used to detect hit
+	 *
+	 */
+	void EmitOnHitEffects(TArray<FHitResult>& HitResults) const;
+
+	/**
 	 * [Server] If hit is detected try and apply magic charge to actor if actor has USMagicChargeComponent
 	 * @params HitResult	All actors that were detect from DetectHit
 	 * 
 	 * return true if magic charge was applied
 	 */
-	bool TryApplyMagicCharge(TArray<FHitResult>& HitResults);
-
-	/**
-	 * [Server] Verify the hit actor can take magic charge based on parameters set in MagicChargeComp
-	 * @param HitActors MagicChargeComponent
-	 * 
-	 * return Actor can accept magic charge
-	 */
-	bool HitActorCanAcceptMagicCharge(USMagicChargeComponent& HitActorMagicChargeComp);
+	bool TryApplyMagicCharge(TArray<FHitResult>& HitResults) const;
 
 	/**
 	 * [Client + Server] Get the closest Actors HitResult to this actors position. HitResults generated in trace done by DetectHit()
@@ -157,7 +165,7 @@ private:
 	 * 
 	 * return HitResult of closest Actor Hit
 	 */
-	FHitResult GetFirstHitActorHitResult(TArray<FHitResult>& HitResults);
+	FHitResult GetFirstHitActorHitResult(TArray<FHitResult>& HitResults) const;
 
 
 };

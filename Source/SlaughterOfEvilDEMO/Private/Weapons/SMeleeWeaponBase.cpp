@@ -97,20 +97,6 @@ void ASMeleeWeaponBase::Tick(float DeltaTime)
 }
 
 
-void ASMeleeWeaponBase::OnMagicChargeChange(bool Value)
-{
-	auto MyOwner = GetOwner();
-	if (MyOwner)
-	{
-		auto MeleeWeaponWielder = Cast<ISMeleeWeaponWielder>(MyOwner);
-		if (MeleeWeaponWielder)
-		{
-			MeleeWeaponWielder->WeaponMagicChargeChange(Value);
-		}
-	}
-}
-
-
 bool ASMeleeWeaponBase::CheckForAttackTraceCollision()
 {
 	if (CollisionComp)
@@ -147,6 +133,20 @@ bool ASMeleeWeaponBase::CheckForAttackTraceCollision()
 }
 
 
+void ASMeleeWeaponBase::OnMagicChargeChange(bool Value)
+{
+	auto MyOwner = GetOwner();
+	if (MyOwner)
+	{
+		auto MeleeWeaponWielder = Cast<ISMeleeWeaponWielder>(MyOwner);
+		if (MeleeWeaponWielder)
+		{
+			MeleeWeaponWielder->WeaponMagicChargeChange(Value);
+		}
+	}
+}
+
+
 bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponState)
 {
 
@@ -170,7 +170,6 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 			if (CollisionComp)
 			{
 				CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-				//CollisionComp->SetHiddenInGame(false);
 			}
 		}
 		else if (NewMeleeWeaponState == EMeleeWeaponState::EMWS_Idle)
@@ -178,7 +177,6 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 			if (CollisionComp)
 			{
 				CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				//CollisionComp->SetHiddenInGame(true);
 			}
 		}
 
@@ -203,23 +201,9 @@ EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
 
 bool ASMeleeWeaponBase::GetIsWeaponMagicCharged()
 {
-	if (MagicChargeComp)
-	{
-		return MagicChargeComp->IsMagicCharged();
-	}
-
-	return false;
+	return (MagicChargeComp) ? MagicChargeComp->IsMagicCharged() : false;
 }
 
-bool ASMeleeWeaponBase::TEMP_DELETE_ME_ApplyMagic()
-{
-	if (MagicChargeComp)
-	{
-		return MagicChargeComp->TrySetMagicCharge(false);
-	}
-
-	return false;
-}
 
 bool ASMeleeWeaponBase::SetCanCauseDamage(bool CanDamage)
 {
@@ -246,7 +230,4 @@ bool ASMeleeWeaponBase::SetIsBlocking(bool Blocking)
 	}
 
 }
-
-
-
 

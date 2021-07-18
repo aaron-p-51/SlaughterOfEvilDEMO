@@ -9,6 +9,7 @@
 class UCapsuleComponent;
 class USphereComponent;
 class USMagicChargeComponent;
+class ASMagicProjectileBase;
 
 UENUM(BlueprintType)
 enum class EMeleeWeaponState : uint8
@@ -27,10 +28,6 @@ class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
 /**
  * Members
  */
-
-public:
-
-
 protected:
 
 	/*************************************************************************/
@@ -107,6 +104,13 @@ protected:
 	 */
 	uint32 bWeaponVisibility : 1;
 
+	/*************************************************************************/
+	/* Magic */
+	/*************************************************************************/
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ASMagicProjectileBase> DefaultMagicProjectile;
+
 
  /**
   * Methods
@@ -138,6 +142,9 @@ public:
 	UFUNCTION()
 	virtual void RemoveMagicChargeEffects() PURE_VIRTUAL(ASMeleeWeaponBase::RemoveMagicChargeEffects, );
 
+	/**
+	 * [Server] Release magic charge from weapon
+	 */
 	UFUNCTION()
 	virtual void ReleaseMagicCharge(FTransform& ReleaseTransform) PURE_VIRTUAL(ASMeleeWeaponBase::ReleaseMagicCharge, );
 
@@ -153,14 +160,10 @@ public:
 	virtual EMeleeWeaponState GetMeleeWeaponState() const;
 
 	/**
-	 * [Server] Get if this weapon is magic charged
+	 * [Server] Get if this weapon is magic charged. Melee Weapon is not replicated only valid on server
 	 */
 	UFUNCTION()
 	bool GetIsWeaponMagicCharged();
-
-	UFUNCTION()
-	bool TEMP_DELETE_ME_ApplyMagic();
-
 
 
 	/*************************************************************************/

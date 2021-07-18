@@ -5,6 +5,7 @@
 
 // Engine Includes
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Kismet/GameplayStatics.h"
 
 // Game Includes
 #include "Magic/SMagicProjectileBase.h"
@@ -22,8 +23,6 @@ ASLongsword::ASLongsword()
 
 	
 }
-
-
 
 
 void ASLongsword::BeginPlay()
@@ -55,11 +54,28 @@ void ASLongsword::RemoveMagicChargeEffects()
 	}
 }
 
+
 void ASLongsword::ReleaseMagicCharge(FTransform& ReleaseTransform)
 {
 	if (GetLocalRole() == ENetRole::ROLE_Authority && MagicChargeComp)
 	{
-		MagicChargeComp->TrySetMagicCharge(false);
+		MagicChargeComp->TryRemoveMagicCharge();
+
+		if (DefaultMagicProjectile)
+		{
+			auto MagicProjectile = Cast<ASMagicProjectileBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DefaultMagicProjectile, ReleaseTransform));
+			if (MagicProjectile)
+			{
+				MagicProjectile->InitialSpeed = 1000.f;
+				MagicProjectile->Mass = 1.f;
+				MagicProjectile->Drag = 0.f;
+				MagicProjectile->Gravity = FVector::ZeroVector;
+				MagicProjectile->SetOwner(this);
+				MagicProjectile->SetInstigator(Cast<APawn>(GetOwner()));
+
+				UGameplayStatics::FinishSpawningActor(MagicProjectile, ReleaseTransform);
+			}
+		}
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("ReleaseMagicCharge"));

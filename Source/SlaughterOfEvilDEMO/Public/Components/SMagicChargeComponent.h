@@ -30,7 +30,7 @@ class SLAUGHTEROFEVILDEMO_API USMagicChargeComponent : public UActorComponent
 
 	/** Max angle in degrees this components actors owner can face to for sucessfull magic charge  */
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bOwnerMustFaceChargeSource"), meta = (ClampMin = "0", ClampMax = "180", UIMin = "0", UIMax = "180"))
-	float MaxOwnerFaceAwayFromChargeSource;
+	float MaxOwnerFaceAwayAngleFromChargeSource;
 
 
  /**
@@ -41,24 +41,38 @@ public:
 	// Sets default values for this component's properties
 	USMagicChargeComponent();
 
-	bool TrySetMagicCharge(bool Charged);
+	/**
+	 * [Server] Try and set the magic charge state. If state is changed OnMagicChargeChange will brodcast change
+	 * 
+	 * return was bIsMagicCharged changed
+	 */
+	bool TrySetMagicCharge(const AActor* ActorApplyingCharge);
 
-	FORCEINLINE bool IsMagicCharged() const { return bIsMagicCharged; }
+	bool TryRemoveMagicCharge();
 
-	FORCEINLINE bool OwnerMustFaceChargeSource() const { return bOwnerMustFaceChargeSource; }
-
-	FORCEINLINE float GetMaxOwnerFaceAwayFromChargeSource() const { return MaxOwnerFaceAwayFromChargeSource; }
+	bool OwnerWithinValidAngle(const AActor* ActorApplyingCharge);
 
 	/**
-	 * [Server] 
+	 * [Server] Is the owning actor magic charged
+	 */
+	FORCEINLINE bool IsMagicCharged() const { return bIsMagicCharged; }
+
+	///**
+	// * [Server] Does the owning actor of this components owner (example, SMagicComponent->SMeleeWeaponBase->CharacterBase) need
+	// * to face a certain direction in relation to the actor trying to apply the magic charge
+	// */
+	//FORCEINLINE bool OwnerMustFaceChargeSource() const { return bOwnerMustFaceChargeSource; }
+
+	///**
+	// * [Server] Get the max angle to owning actor of this components owner (example, SMagicComponent->SMeleeWeaponBase->CharacterBase) can face
+	// * away from the forward vector of the actor trying to apply the magic charge
+	// */
+	//FORCEINLINE float GetMaxOwnerFaceAwayFromChargeSource() const { return MaxOwnerFaceAwayAngleFromChargeSource; }
+
+	/**
+	 * [Server] Brodcast event when bIsMagicCharged changes
 	 */
 	UPROPERTY()
 	FOnMagicChargeChangeSignature OnMagicChargeChange;
-
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
-
-
 		
 };

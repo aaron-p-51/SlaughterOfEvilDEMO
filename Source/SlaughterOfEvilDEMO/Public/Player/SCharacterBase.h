@@ -27,11 +27,12 @@ enum class EMeleeAttackDirection : uint8
 UENUM(BlueprintType)
 enum class EMagicUseState : uint8
 {
-	EMUS_NoCharge		UMETA(DisplayName = "NoCharge"),
-	EMUS_Idle			UMETA(DisplayName = "Idle"),
-	EMUS_Start			UMETA(DisplayName = "Start"),
-	EMUS_Ready			UMETA(DisplayName = "Ready"),
-	EMUS_Finish			UMETA(DisplayName = "Finish")
+
+	EMUS_NoCharge		UMETA(DisplayName = "NoCharge"),	// Weapon is not magic charged
+	EMUS_Idle			UMETA(DisplayName = "Idle"),		// Weapon is magic charged has not starting using magic
+	EMUS_Start			UMETA(DisplayName = "Start"),		// Weapon is magic charged, staring to use (charing)
+	EMUS_Ready			UMETA(DisplayName = "Ready"),		// Weapon is magic charged, ready to use (charged)
+	EMUS_Finish			UMETA(DisplayName = "Finish")		// Weapon is magic charged, signal release of magic
 };
 
 
@@ -87,9 +88,13 @@ struct FMeleeWeaponData
 	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
 	UAnimMontage* FPPMagicFinishMontage;
 
-	/** Animation montage for TPP to use magic projectile (does not have charge and use montages like FPP) */
+	/** Animation montage for TPP when starting to use magic (charging to use) */
 	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
-	UAnimMontage* TPPUseMagicMontage;
+	UAnimMontage* TPPMagicStartMontage;
+
+	/** Animation montage for TPP when starting to use magic (charging to use) */
+	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
+	UAnimMontage* TPPMagicFinishMontage;
 
 	/** Impact montage when weapon is blocking, will only play on locally controlled character (FPP) */
 	UPROPERTY(EditDefaultsOnly, Category = "Block | First Person")
@@ -170,6 +175,11 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	/**
+	 * [Server + Client] Get the pich of the locally controlled character
+	 */
+	UFUNCTION(BlueprintCallable)
+	FRotator GetRemotePitchView() const;
 
 	/*************************************************************************/
 	/* Player Input*/
@@ -197,6 +207,7 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
 
+
 	/*************************************************************************/
 	/* Weapon Block*/
 	/*************************************************************************/
@@ -217,34 +228,52 @@ public:
 	/* Weapon Magic*/
 	/*************************************************************************/
 
+	/** [Server + Client] Player input to start using weapon magic */
 	UFUNCTION()
-	void StartWeaponMagicProjectile();
+	void StartUseWeaponMagic();
 
+	/**
+	 * [Server] Start player using weapon magic on server, will start animations on server used for MagicUseState progression
+	 */
 	UFUNCTION(Server, Reliable)
-	void ServerStartWeaponMagicProjectile();
+	void ServerStartUseWeaponMagic();
 
+	/**
+	 * [Server + Client] Play animations to start using weapon magic, animations used for MagicUseState progression will not be played
+	 * as they are all played from ServerStartWeaponMagicProjectile
+	 */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayStarUsetWeaponMagic();
+
+	/** [Server + Client] Player input to finish using weapon magic  */
 	UFUNCTION()
-	void FinishWeaponMagicProjectile();
+	void FinishUseWeaponMagic();
 
+	/**
+	 * [Server] Finish player using weapon magic on server, will start animation on server used to for MagicUseState progression
+	 */
 	UFUNCTION(Server, Reliable)
-	void ServerFinishWeaponMagicProjectile(float ProjectilePitch);
+	void ServerFinishUseWeaponMagic();
 
+	/**
+	 * [Server + Client] Play animations to finish using weapon magic, animations used for MagicUseState progression will not be played
+	 * as they are all played from ServerFinishUseWeaponMagic
+	 */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayFinishUseWeaponMagic();
+
+	/**
+	 * [Server] Release the current weapon magic. Calls current melee weapon to react to magic charge released
+	 */
 	UFUNCTION()
-	void ShootWeaponMagicProjectile();
-
-	//UFUNCTION()
-	//void SetMagicProjectileReady(UAnimMontage* Montage, bool bInterrupted);
-
-	//UFUNCTION()
-	//void MagicProjectileUseInterrupted(UAnimMontage* Montage, bool bInterrupted);
-
+	void ReleaseWeaponMagic();
 
 
 	/*************************************************************************/
 	/* ISMeleeWeaponWielder overloads*/
 	/*************************************************************************/
 	
-	/** Called when the current equipped weapon changes its magic charge state */
+	/** [Server] Called when the current equipped weapon changes its magic charge state */
 	virtual void WeaponMagicChargeChange(bool Value) override;
 
 	UFUNCTION()
@@ -287,7 +316,17 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void SpawnStartingWeapons();
 
+	/**
+	 * [Server] Helper function to check if current weapon in magic charged. Melee weapon is not replicated, will only be
+	 * valid on server.
+	 */
 	bool IsCurrentMeleeWeaponMagicCharged() const;
+
+	/**
+	 * [Server + Client] Play matching animation on autonomous and simulated proxies. Do not use to play animations with
+	 * notifies for used for game play progression
+	 */
+	void PlayMontagePairTPPandFPP(UAnimMontage* FPPMontage, UAnimMontage* TPPMontage) const;
 
 
 

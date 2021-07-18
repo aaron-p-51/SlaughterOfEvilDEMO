@@ -29,9 +29,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterialInstanceDynamic* MeshDynamicMaterial;
 
-	/**  */
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class ASMagicProjectileBase> MagicProjectile;
 
 /**
  * Methods

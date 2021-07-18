@@ -52,7 +52,6 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	PreviousPosition = FVector::ZeroVector;
 
 	bReplicates = true;
-
 }
 
 
@@ -61,6 +60,7 @@ void ASMagicProjectileBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Sphere trace radius will be radius of SphereComp
 	if (SphereComp)
 	{
 		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
@@ -69,16 +69,6 @@ void ASMagicProjectileBase::BeginPlay()
 	// Set projectile initial velocity
 	Velocity = GetActorForwardVector() * InitialSpeed;
 
-
-	// Assume Gravity and Mass will not change, avoid computing every frame
-	if (Mass == 0.f || FMath::IsNearlyZero(Mass))
-	{
-		DragEffect = 0.f;
-	}
-	else
-	{
-		DragEffect = Drag / Mass;
-	}
 }
 
 
@@ -93,6 +83,8 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 	// Hits will be detected on all clients, only server will apply damage and try to set magic charge state on hit actors
 	if (DetectHit())
 	{
+		// If hit is detected on server before clients stop replication, alllow for clients to 
+		// show particle effects from collision
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
 			TearOff();
@@ -102,6 +94,7 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 	}
 	else
 	{
+		// Set new position and rotation calculated this frame (CalculateMovement())
 		SetActorLocation(NextPosition);
 		SetActorRotation(UKismetMathLibrary::MakeRotFromX(Velocity));
 	}
@@ -111,6 +104,9 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
 {
 	PreviousPosition = GetActorLocation();
+
+	// Calculate effect of drag
+	float DragEffect = (Mass == 0.f || FMath::IsNearlyZero(Mass)) ? 0.f : Drag / Mass;
 
 	// Calculate acceleration taking into account gravity and drag
 	Acceleration = Gravity - (Velocity * Velocity) * DragEffect;
@@ -129,9 +125,9 @@ void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
 
 bool ASMagicProjectileBase::DetectHit()
 {
-
 	TArray<AActor*> IgnoreActors;
 	IgnoreActors.Add(GetOwner());
+	IgnoreActors.Add(GetInstigator());
 
 	TArray<FHitResult> HitResults;
 
@@ -152,29 +148,33 @@ bool ASMagicProjectileBase::DetectHit()
 
 	if (bHitDetected)
 	{
-		if (OnHitEffects)
-		{
-			FHitResult FirstHitActorResult = GetFirstHitActorHitResult(HitResults);
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, FirstHitActorResult.Location, UKismetMathLibrary::MakeRotFromX(FirstHitActorResult.Normal));
-		}
-
+		EmitOnHitEffects(HitResults);
+		
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
 			TryApplyMagicCharge(HitResults);
 		}
-		
 	}
-
-
 	return bHitDetected;
 }
 
 
-FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& HitResults)
+void ASMagicProjectileBase::EmitOnHitEffects(TArray<FHitResult>& HitResults) const
+{
+	if (OnHitEffects)
+	{
+		FHitResult FirstHitActorResult = GetFirstHitActorHitResult(HitResults);
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, FirstHitActorResult.Location, UKismetMathLibrary::MakeRotFromX(FirstHitActorResult.Normal));
+	}
+}
+
+
+FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& HitResults) const
 {
 	float ClosestDistance = NAN;
 	FHitResult Result;
 
+	// Look at all actors in HitResults. Find the Actor that has the closest location the this actors current location
 	for (auto HitResult : HitResults)
 	{
 		auto HitLocation = HitResult.Location;
@@ -183,64 +183,35 @@ FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& 
 		if (ClosestDistance == NAN || DistanceToHitHitLocation < ClosestDistance)
 		{
 			ClosestDistance = DistanceToHitHitLocation;
-			Result = HitResult;
-			
+			Result = HitResult;	
 		}
-		
 	}
 
 	return Result;
 }
 
 
-//TODO: if hit multiple actors(player and longsword) if longsword has successful magic charge set do not apple damage to player
-bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResults)
+bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResults) const
 {
+	// Only run on server
+	if (GetLocalRole() != ENetRole::ROLE_Authority) return false;
+
 	for (auto HitResult : HitResults)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitResult.GetActor()->GetName());
 		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
 		if (ActorMagicChargeComp)
 		{
-			if (HitActorCanAcceptMagicCharge(*ActorMagicChargeComp))
-			{
-				bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(true);
-			}
-			else
-			{
+			auto a = Cast<AActor>(this);
+			bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(this);
+		}	
+		else
+		{
 				// Apply Damage...
-			}
 		}
 	}
 
 	return false;
-}
-
-
-bool ASMagicProjectileBase::HitActorCanAcceptMagicCharge(USMagicChargeComponent& HitActorMagicChargeComp)
-{
-	if (HitActorMagicChargeComp.IsMagicCharged()) return false;
-
-	if (HitActorMagicChargeComp.OwnerMustFaceChargeSource())
-	{
-		// Get the owner of the owner of HitActorMagicChargeComp, this should be CharacterBase 
-		auto HitActorOwner = HitActorMagicChargeComp.GetOwner()->GetOwner();
-		if (HitActorOwner)
-		{
-			// Get the dot product between projectile forward vector and forward vector of HitActors Owner 
-			float Dot = FVector::DotProduct(GetActorForwardVector(), HitActorOwner->GetActorForwardVector());
-		
-			// The max angle HitActorOwner can face away from the projectile is 180 (deg). Map 0 to 180 range to
-			// output range of dot product (for dot product -1 if actors in line above face same direction, 1 of opposite directions) 
-			float MapDot = FMath::GetMappedRangeValueUnclamped(FVector2D(-1.f, 1.f), FVector2D(0.f, 180.f), Dot);
-
-			// If the mapped dot product value less than or equal to the max angle HitActorOwner can face from the projectile
-			// then HitActorMagicChargeComp can accept magic charge
-			return MapDot <= FMath::Abs(HitActorMagicChargeComp.GetMaxOwnerFaceAwayFromChargeSource());
-		}
-	}
-
-	return true;
 }
 
 
