@@ -5,21 +5,24 @@
 
 // Engine Includes
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Kismet/GameplayStatics.h"
 
 // Game Includes
+#include "Magic/SMagicProjectileBase.h"
+#include "SMeleeWeaponWielder.h"
+#include "Components/SMagicChargeComponent.h"
 
 ASLongsword::ASLongsword()
 {
-
-	PrimaryActorTick.bCanEverTick = true;
 
 	// All Collisions will handled
 	if (MeshComp)
 	{
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
-}
 
+	
+}
 
 
 void ASLongsword::BeginPlay()
@@ -29,57 +32,54 @@ void ASLongsword::BeginPlay()
 	if (MeshComp)
 	{
 		MeshDynamicMaterial = MeshComp->CreateAndSetMaterialInstanceDynamic(0);
-	};
-}
+	}
 
-void ASLongsword::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
+	
 }
 
 
-
-void ASLongsword::OnRep_SetMagicCharge()
+void ASLongsword::ApplyMagicChargeEffects()
 {
-	Super::OnRep_SetMagicCharge();
-
 	if (MeshDynamicMaterial)
 	{
-		if (bIsMagicCharged)
-		{
-			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
-		}
-		else
-		{
-			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
-		}
+		MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
 	}
 }
 
-//bool ASLongsword::TrySetMagicCharge(bool Charged)
-//{
-//	Super::TrySetMagicCharge(Charged);
-//
-//	if (bIsMagicCharged && ) 
-//
-//	if (SetMagicChargeState(true))
-//	{
-//		if (MeshDynamicMaterial && IsMagicCharged())
-//		{
-//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(1.f, 0.f, 0.f, 0.f));
-//		}
-//	}
-//}
+void ASLongsword::RemoveMagicChargeEffects()
+{
+	if (MeshDynamicMaterial)
+	{
+		MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
+	}
+}
 
 
-//void ASLongsword::RemoveMagicCharge()
-//{
-//	if (SetMagicChargeState(false))
-//	{
-//		if (MeshDynamicMaterial && !IsMagicCharged())
-//		{
-//			MeshDynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(0.f, 1.f, 0.f, 0.f));
-//		}
-//	}
-//}
+void ASLongsword::ReleaseMagicCharge(FTransform& ReleaseTransform)
+{
+	if (GetLocalRole() == ENetRole::ROLE_Authority && MagicChargeComp)
+	{
+		MagicChargeComp->TryRemoveMagicCharge();
+
+		if (DefaultMagicProjectile)
+		{
+			auto MagicProjectile = Cast<ASMagicProjectileBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DefaultMagicProjectile, ReleaseTransform));
+			if (MagicProjectile)
+			{
+				MagicProjectile->InitialSpeed = 1000.f;
+				MagicProjectile->Mass = 1.f;
+				MagicProjectile->Drag = 0.f;
+				MagicProjectile->Gravity = FVector::ZeroVector;
+				MagicProjectile->SetOwner(this);
+				MagicProjectile->SetInstigator(Cast<APawn>(GetOwner()));
+
+				UGameplayStatics::FinishSpawningActor(MagicProjectile, ReleaseTransform);
+			}
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ReleaseMagicCharge"));
+}
+
+
 

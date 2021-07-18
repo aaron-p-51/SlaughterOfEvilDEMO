@@ -11,10 +11,11 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Math/UnrealMathUtility.h"
-#include "Net/UnrealNetwork.h"
+
 
 // Game Includes
 #include "Player/SCharacterBase.h"
+#include "Components/SMagicChargeComponent.h"
 
 // Sets default values
 ASMeleeWeaponBase::ASMeleeWeaponBase()
@@ -31,7 +32,6 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 	if (MeshComp && RootComp)
 	{
 		MeshComp->SetupAttachment(RootComp);
-		MeshComp->SetVisibility(false);
 	}
 
 	CollisionComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CollisionComp"));
@@ -44,101 +44,33 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	bIsMagicCharged = false;
+	MagicChargeComp = CreateDefaultSubobject<USMagicChargeComponent>(TEXT("MagicChargeComp"));
 
-	bReplicates = true;
+	bWeaponVisibility = true;
 }
-
-
 
 
 void ASMeleeWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
-
-	MeshComp->SetVisibility(false);
-
-
-	bool IsLocallyControlled = false;
-	auto MyOwner = Cast<ASCharacterBase>(GetOwner());
-	if (MyOwner)
-	{
-		IsLocallyControlled = MyOwner->IsLocallyControlled();
-		UE_LOG(LogTemp, Warning, TEXT("My Owner is: %s"), *MyOwner->GetName());
-	}
-
+	
 	if (MeshComp)
 	{
-		bool IsServer = GetLocalRole() == ENetRole::ROLE_Authority;
-		bool IsFirstPerson = MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_FirstPerson;
-
-		if (IsServer && IsFirstPerson && IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-			MeshComp->SetHiddenInGame(false);
-		}
-		else if (!IsServer && IsFirstPerson && IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-			MeshComp->SetHiddenInGame(false);
-		}
-		else if (!IsServer && !IsFirstPerson && !IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-			MeshComp->SetHiddenInGame(false);
-		}
-
-		/*
-		else if (IsServer && !IsFirstPerson && !IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-		}*/
-
-	
-
-	
-
-		/*if (IsLocallyControlled && MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_ThirdPerson)
-		{
-			MeshComp->SetHiddenInGame(true);
-		}*/
-
-		/*/if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_FirstPerson && IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-		}
-		else if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_FirstPerson && !IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(false);
-		}
-		else if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_ThirdPerson && IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(false);
-		}
-		else if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_ThirdPerson && !IsLocallyControlled)
-		{
-			MeshComp->SetVisibility(true);
-		}*/
-		//else if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_FirstPerson && !IsLocallyControlled)
-		//{
-		//	MeshComp->SetVisibility(false);
-		//}
-		//else if (MeleeWeaponPerspective == EMeleeWeaponPerspective::EMWP_ThirdPerson && IsLocallyControlled)
-		//{
-
-		//}
-		//else // Third Person
-		//{
-		//	MeshComp->SetOwnerNoSee(true);
-		//	MeshComp->SetOnlyOwnerSee(false);
-		//}
+		MeshComp->SetVisibility(bWeaponVisibility);
 	}
 
-	CacheDamageTraceArguments();
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		if (MagicChargeComp)
+		{
+			MagicChargeComp->OnMagicChargeChange.AddDynamic(this, &ASMeleeWeaponBase::OnMagicChargeChange);
+		}
+
+		CacheDamageTraceArguments();
+	}
+
+	
 }
-
-
-
 
 
 void ASMeleeWeaponBase::CacheDamageTraceArguments()
@@ -149,10 +81,9 @@ void ASMeleeWeaponBase::CacheDamageTraceArguments()
 		TraceHalfHeight = CollisionComp->GetScaledCapsuleHalfHeight();
 	}
 
-	TraceIgnoreActors.Add(GetOwner());
-	CollisionObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+	DamageTraceIgnoreActors.Add(GetOwner());
+	DamageCollisionObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
 }
-
 
 
 void ASMeleeWeaponBase::Tick(float DeltaTime)
@@ -161,12 +92,12 @@ void ASMeleeWeaponBase::Tick(float DeltaTime)
 
 	if ((GetLocalRole() == ENetRole::ROLE_Authority) && (MeleeWeaponState == EMeleeWeaponState::EMWS_Attacking))
 	{
-		bool Hit = CheckForCollision();
+		bool Hit = CheckForAttackTraceCollision();
 	}
 }
 
 
-bool ASMeleeWeaponBase::CheckForCollision()
+bool ASMeleeWeaponBase::CheckForAttackTraceCollision()
 {
 	if (CollisionComp)
 	{
@@ -179,9 +110,9 @@ bool ASMeleeWeaponBase::CheckForCollision()
 			TraceEnd,
 			TraceRadius,
 			TraceHalfHeight,
-			CollisionObjectTypes,
+			DamageCollisionObjectTypes,
 			true,
-			TraceIgnoreActors,
+			DamageTraceIgnoreActors,
 			EDrawDebugTrace::None,
 			HitResult,
 			true
@@ -202,37 +133,15 @@ bool ASMeleeWeaponBase::CheckForCollision()
 }
 
 
-bool ASMeleeWeaponBase::TrySetMagicCharge(bool Charged)
-{
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{
-		if (Charged && !bIsMagicCharged)
-		{
-			bIsMagicCharged = true;
-			OnRep_SetMagicCharge();
-			return true;
-		}
-		else if (!Charged && bIsMagicCharged)
-		{
-			bIsMagicCharged = false;
-			OnRep_SetMagicCharge();
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-void ASMeleeWeaponBase::OnRep_SetMagicCharge()
+void ASMeleeWeaponBase::OnMagicChargeChange(bool Value)
 {
 	auto MyOwner = GetOwner();
 	if (MyOwner)
 	{
-		auto CharacterOwner = Cast<ASCharacterBase>(MyOwner);
-		if (CharacterOwner)
+		auto MeleeWeaponWielder = Cast<ISMeleeWeaponWielder>(MyOwner);
+		if (MeleeWeaponWielder)
 		{
-			CharacterOwner->SetWeaponMagicCharged(bIsMagicCharged);
+			MeleeWeaponWielder->WeaponMagicChargeChange(Value);
 		}
 	}
 }
@@ -261,7 +170,6 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 			if (CollisionComp)
 			{
 				CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-				CollisionComp->SetHiddenInGame(false);
 			}
 		}
 		else if (NewMeleeWeaponState == EMeleeWeaponState::EMWS_Idle)
@@ -269,7 +177,6 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 			if (CollisionComp)
 			{
 				CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				CollisionComp->SetHiddenInGame(true);
 			}
 		}
 
@@ -286,46 +193,41 @@ bool ASMeleeWeaponBase::TrySetMeleeWeaponState(EMeleeWeaponState NewMeleeWeaponS
 }
 
 
-bool ASMeleeWeaponBase::IsMagicCharged() const
-{
-	return bIsMagicCharged;
-}
-
-
 EMeleeWeaponState ASMeleeWeaponBase::GetMeleeWeaponState() const
 {
 	return MeleeWeaponState;
 }
 
 
-void ASMeleeWeaponBase::SetCanCauseDamage(bool CanDamage)
+bool ASMeleeWeaponBase::GetIsWeaponMagicCharged()
 {
-	CanDamage ? TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking) : TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
+	return (MagicChargeComp) ? MagicChargeComp->IsMagicCharged() : false;
 }
 
 
-void ASMeleeWeaponBase::SetIsBlocking(bool Blocking)
+bool ASMeleeWeaponBase::SetCanCauseDamage(bool CanDamage)
 {
-	Blocking ? TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Blocking) : TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
+	if (CanDamage)
+	{
+		return  TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Attacking) && MeleeWeaponState == EMeleeWeaponState::EMWS_Attacking;
+	}
+	else
+	{
+		return TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle) && MeleeWeaponState == EMeleeWeaponState::EMWS_Idle;
+	}
 }
 
 
-void ASMeleeWeaponBase::SetMeleeWeaponPerspective(EMeleeWeaponPerspective Perspective)
+bool ASMeleeWeaponBase::SetIsBlocking(bool Blocking)
 {
-
-	MeleeWeaponPerspective = Perspective;
-
+	if (Blocking)
+	{
+		return TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Blocking) && MeleeWeaponState == EMeleeWeaponState::EMWS_Blocking;
+	}
+	else
+	{
+		return TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle) && MeleeWeaponState == EMeleeWeaponState::EMWS_Idle;
+	}
 
 }
-
-
-void ASMeleeWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ASMeleeWeaponBase, bIsMagicCharged);
-
-}
-
-
 

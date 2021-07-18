@@ -16,6 +16,7 @@
 // Game Includes
 #include "SMeleeWeaponWielder.h"
 #include "Weapons/SMeleeWeaponBase.h"
+#include "Components/SMagicChargeComponent.h"
 
 // Sets default values
 ASMagicProjectileBase::ASMagicProjectileBase()
@@ -27,7 +28,6 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	if (SphereComp)
 	{
 		SetRootComponent(SphereComp);
-		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
 	}
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
@@ -37,7 +37,7 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	}
 
 
-	// Set defaults
+	// Set defaults (if errors are found try setting in BeginPlay()
 	InitialSpeed = 10.f;
 	Mass = 1.f;
 	Drag = 0.f;
@@ -51,8 +51,7 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	NextPosition = FVector::ZeroVector;
 	PreviousPosition = FVector::ZeroVector;
 
-	SetReplicates(true);
-
+	bReplicates = true;
 }
 
 
@@ -61,20 +60,14 @@ void ASMagicProjectileBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Sphere trace radius will be radius of SphereComp
+	if (SphereComp)
+	{
+		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
+	}
+
 	// Set projectile initial velocity
 	Velocity = GetActorForwardVector() * InitialSpeed;
-
-
-	// Assume Gravity and Mass will not change, avoid computing every frame
-	if (Mass == 0.f || FMath::IsNearlyZero(Mass))
-	{
-		DragEffect = 0.f;
-	}
-	else
-	{
-		DragEffect = Drag / Mass;
-	}
-
 
 }
 
@@ -84,10 +77,14 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Movement is not replicated. All clients will move projectile on their own
 	CalculateMovement(DeltaTime);
 
+	// Hits will be detected on all clients, only server will apply damage and try to set magic charge state on hit actors
 	if (DetectHit())
 	{
+		// If hit is detected on server before clients stop replication, alllow for clients to 
+		// show particle effects from collision
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
 			TearOff();
@@ -97,6 +94,7 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 	}
 	else
 	{
+		// Set new position and rotation calculated this frame (CalculateMovement())
 		SetActorLocation(NextPosition);
 		SetActorRotation(UKismetMathLibrary::MakeRotFromX(Velocity));
 	}
@@ -106,6 +104,9 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
 {
 	PreviousPosition = GetActorLocation();
+
+	// Calculate effect of drag
+	float DragEffect = (Mass == 0.f || FMath::IsNearlyZero(Mass)) ? 0.f : Drag / Mass;
 
 	// Calculate acceleration taking into account gravity and drag
 	Acceleration = Gravity - (Velocity * Velocity) * DragEffect;
@@ -124,12 +125,13 @@ void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
 
 bool ASMagicProjectileBase::DetectHit()
 {
-
 	TArray<AActor*> IgnoreActors;
 	IgnoreActors.Add(GetOwner());
+	IgnoreActors.Add(GetInstigator());
 
 	TArray<FHitResult> HitResults;
 
+	// Sphere trace from previous position to position projectile will move to at the end of this frame 
 	bool bHitDetected = UKismetSystemLibrary::SphereTraceMulti(
 		this,
 		PreviousPosition,
@@ -146,57 +148,68 @@ bool ASMagicProjectileBase::DetectHit()
 
 	if (bHitDetected)
 	{
+		EmitOnHitEffects(HitResults);
 		
-		/*if (OnHitEffects)
-		{
-			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, HitResult.Location, UKismetMathLibrary::MakeRotFromX(HitResult.Normal));
-		}*/
-
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
 			TryApplyMagicCharge(HitResults);
 		}
-		
 	}
-
-
 	return bHitDetected;
 }
 
 
-bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResult)
+void ASMagicProjectileBase::EmitOnHitEffects(TArray<FHitResult>& HitResults) const
 {
-	for (auto HitResult : HitResult)
+	if (OnHitEffects)
 	{
-		auto MagicChargableActor = Cast<ASMeleeWeaponBase>(HitResult.GetActor());
-		if (MagicChargableActor)
+		FHitResult FirstHitActorResult = GetFirstHitActorHitResult(HitResults);
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, FirstHitActorResult.Location, UKismetMathLibrary::MakeRotFromX(FirstHitActorResult.Normal));
+	}
+}
+
+
+FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& HitResults) const
+{
+	float ClosestDistance = NAN;
+	FHitResult Result;
+
+	// Look at all actors in HitResults. Find the Actor that has the closest location the this actors current location
+	for (auto HitResult : HitResults)
+	{
+		auto HitLocation = HitResult.Location;
+
+		float DistanceToHitHitLocation = FVector::DistSquared(HitLocation, GetActorLocation());
+		if (ClosestDistance == NAN || DistanceToHitHitLocation < ClosestDistance)
 		{
-			if (MagicChargableActor->GetMeleeWeaponState() == EMeleeWeaponState::EMWS_Blocking)
-			{
-				MagicChargableActor->TrySetMagicCharge(true);
-			}
+			ClosestDistance = DistanceToHitHitLocation;
+			Result = HitResult;	
 		}
 	}
 
-	//if (ActorToMagicCharge)
-	//{
-	//	UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *ActorToMagicCharge->GetName());
+	return Result;
+}
 
-	//	auto MeleeWeaponWielderInterface = Cast<ISMeleeWeaponWielder>(ActorToMagicCharge);
-	//	if (MeleeWeaponWielderInterface)
-	//	{
-	//		if (MeleeWeaponWielderInterface->IsBlocking())
-	//		{
-	//			float x = FVector::DotProduct(GetActorForwardVector(), ActorToMagicCharge->GetActorForwardVector());
-	//			
-	//			// TODO: Scale MaxBlockAngle of Dot product results
-	//			if (x >= -1.f && x <= -0.8f)
-	//			{
-	//				return MeleeWeaponWielderInterface->TrySetMagicCharge(true);
-	//			}
-	//		}
-	//	}
-	//}
+
+bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResults) const
+{
+	// Only run on server
+	if (GetLocalRole() != ENetRole::ROLE_Authority) return false;
+
+	for (auto HitResult : HitResults)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitResult.GetActor()->GetName());
+		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
+		if (ActorMagicChargeComp)
+		{
+			auto a = Cast<AActor>(this);
+			bool AppliedCharge = ActorMagicChargeComp->TrySetMagicCharge(this);
+		}	
+		else
+		{
+				// Apply Damage...
+		}
+	}
 
 	return false;
 }
