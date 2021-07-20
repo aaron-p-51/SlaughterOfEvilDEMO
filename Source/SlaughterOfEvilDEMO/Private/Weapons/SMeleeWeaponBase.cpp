@@ -92,6 +92,7 @@ void ASMeleeWeaponBase::Tick(float DeltaTime)
 
 	if ((GetLocalRole() == ENetRole::ROLE_Authority) && (MeleeWeaponState == EMeleeWeaponState::EMWS_Attacking))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Weapon Trace"));
 		bool Hit = CheckForAttackTraceCollision();
 	}
 }
@@ -121,7 +122,7 @@ bool ASMeleeWeaponBase::CheckForAttackTraceCollision()
 		if (Hit)
 		{
 			DrawDebugSphere(GetWorld(), HitResult.Location, 5.f, 12, FColor::Red, false, 2.f, 0.f, 0.3f);
-			TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
+			//TrySetMeleeWeaponState(EMeleeWeaponState::EMWS_Idle);
 		}
 		else
 		{

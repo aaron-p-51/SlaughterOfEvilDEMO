@@ -48,6 +48,7 @@ ASCharacterBase::ASCharacterBase()
 	
 	CurrentWeaponIndex = NO_WEAPON_SET;
 	MagicUseState = EMagicUseState::EMUS_Idle;
+	MeleeAttackState = EMeleeAttackState::EMAS_Idle;
 	
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -206,8 +207,19 @@ void ASCharacterBase::WeaponAttack()
 
 void ASCharacterBase::ServerTryMeleeAttack_Implementation()
 {
-	MeleeAttackDirection = GetMeleeAttackDirection();
-	MulticastPlayMeleeAttackMontage(MeleeAttackDirection);
+	if (MeleeAttackState == EMeleeAttackState::EMAS_Idle)
+	{
+		TrySetMeleeAttackState(EMeleeAttackState::EMAS_Attacking);
+		MeleeAttackDirection = GetMeleeAttackDirection();
+
+		auto ServerFirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttackDirection);
+		if (*ServerFirstPersonAttackMontage && FirstPersonAnimInstance)
+		{
+			FirstPersonAnimInstance->Montage_Play(*ServerFirstPersonAttackMontage);
+			MulticastPlayMeleeAttackMontage(MeleeAttackDirection);
+		}
+	}
+	
 }
 
 
@@ -253,79 +265,34 @@ EMeleeAttackDirection ASCharacterBase::GetMeleeAttackDirection() const
 
 void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttackDirection MeleeAttack)
 {
+	PlayMontagePairTPPandFPP(*(MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttack)),
+		*(MeleeWeaponData[CurrentWeaponIndex].TPPAttackMontages.Find(MeleeAttack)));
+}
+
+
+bool ASCharacterBase::TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState)
+{
 	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		// Damage window is only set from FPP on server, damage can only be applied 
-		auto ServerFirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttack);
-		if (ServerFirstPersonAttackMontage && FirstPersonAnimInstance)
-		{
-			if (FirstPersonAnimInstance->Montage_Play(*ServerFirstPersonAttackMontage))
-			{
-				FirstPersonAnimInstance->OnPlayMontageNotifyBegin.AddDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
-				FirstPersonAnimInstance->OnPlayMontageNotifyEnd.AddDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);
-			}
-		}
+		MeleeAttackState = NewMeleeAttackState;
 
-		// Some repeated code, trying to avoid doing TMap.Find() when montage will not be used
-		if (!IsLocallyControlled() && ThirdPersonAnimInstance)
+		if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
 		{
-			auto ThirdPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].TPPAttackMontages.Find(MeleeAttack);
-			if (*ThirdPersonAttackMontage)
+			if (MeleeAttackState == EMeleeAttackState::EMAS_CauseDamage)
 			{
-				ThirdPersonAnimInstance->Montage_Play(*ThirdPersonAttackMontage);
+				MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(true);
+			}
+			else
+			{
+				MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(false);
 			}
 		}
 	}
-	else
-	{
-		if (IsLocallyControlled() && FirstPersonAnimInstance)	// Autonomous Proxy
-		{
-			auto FirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttack);
-			if (*FirstPersonAttackMontage)
-			{
-				FirstPersonAnimInstance->Montage_Play(*FirstPersonAttackMontage);
-			}
-		}
-		else if (ThirdPersonAnimInstance)	// Simulated Proxy
-		{
-			auto ThirdPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].TPPAttackMontages.Find(MeleeAttack);
-			if (*ThirdPersonAttackMontage)
-			{
-				ThirdPersonAnimInstance->Montage_Play(*ThirdPersonAttackMontage);
-			}
-		}
-	}
+
+	return true;
 }
 
-
-void ASCharacterBase::OnMontageNotifyBeginTryApplyDamage(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
-{
-	if (FirstPersonAnimInstance)
-	{
-		FirstPersonAnimInstance->OnPlayMontageNotifyBegin.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyBeginTryApplyDamage);
-	}
-
-	if (GetLocalRole() == ENetRole::ROLE_Authority && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
-	{
-		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(true);
-	}
-}
-
-
-void ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload)
-{
-	if (FirstPersonAnimInstance)
-	{
-		FirstPersonAnimInstance->OnPlayMontageNotifyEnd.RemoveDynamic(this, &ASCharacterBase::OnMontageNotifyEndSetWeaponIdleState);
-	}
-
-	if (GetLocalRole() == ENetRole::ROLE_Authority && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
-	{
-		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(false);
-	}
-}
-
-
+#pragma region MELEE_WEAPON_BLOCK
 /*************************************************************************/
 /* Melee Weapon Block */
 /*************************************************************************/
@@ -372,6 +339,8 @@ bool ASCharacterBase::IsBlocking()
 {
 	return bIsBlocking;
 }
+
+#pragma endregion
 
 
 /*************************************************************************/
@@ -583,7 +552,6 @@ bool ASCharacterBase::IsCurrentMeleeWeaponMagicCharged() const
 
 void ASCharacterBase::PlayMontagePairTPPandFPP(UAnimMontage* FPPMontage, UAnimMontage* TPPMontage) const
 {
-
 	if (GetLocalRole() < ENetRole::ROLE_Authority && IsLocallyControlled() && FirstPersonAnimInstance && FPPMontage)
 	{
 		FirstPersonAnimInstance->Montage_Play(FPPMontage);
