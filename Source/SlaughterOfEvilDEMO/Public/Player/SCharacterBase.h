@@ -12,6 +12,15 @@
 class UCameraComponent;
 class ASMeleeWeaponBase;
 
+
+UENUM(BlueprintType)
+enum class EMeleeAttackState : uint8
+{
+	EMAS_Idle			UMETA(DisplayName = "Idle"),
+	EMAS_Attacking		UMETA(DisplayName = "Attacking"),
+	EMAS_CauseDamage	UMETA(DisplayName = "CauseDamage")
+};
+
 /**
  * Melee Attach swing directions
  */
@@ -159,6 +168,8 @@ protected:
 	UPROPERTY(Replicated)
 	EMagicUseState MagicUseState;
 
+	EMeleeAttackState MeleeAttackState;
+
 
 private:
 
@@ -206,6 +217,8 @@ public:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
+
+	bool TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState);
 
 
 	/*************************************************************************/
@@ -291,14 +304,6 @@ protected:
 
 private:	
 
-	/*************************************************************************/
-	/* Anim notify call backs*/
-	/*************************************************************************/
-	UFUNCTION()
-	void OnMontageNotifyBeginTryApplyDamage(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
-
-	UFUNCTION()
-	void OnMontageNotifyEndSetWeaponIdleState(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointPayload);
 
 	/*************************************************************************/
 	/* On Rep notifys*/

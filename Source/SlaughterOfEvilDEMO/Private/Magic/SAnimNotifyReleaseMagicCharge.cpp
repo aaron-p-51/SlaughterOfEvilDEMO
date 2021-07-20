@@ -8,6 +8,8 @@
 
 void USAnimNotifyReleaseMagicCharge::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation)
 {
+	Super::Notify(MeshComp, Animation);
+
 	if (!MeshComp) return;
 
 	if (MeshComp->GetOwner())
