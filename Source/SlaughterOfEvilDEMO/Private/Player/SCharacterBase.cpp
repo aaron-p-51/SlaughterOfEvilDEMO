@@ -165,10 +165,10 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis(TEXT("LookRight"), this, &APawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &APawn::AddControllerPitchInput);
 
-	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponAttack);
+	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &ASCharacterBase::MeleeAttack);
 
-	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::WeaponBlockStart);
-	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::WeaponBlockStop);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::MeleeBlockStart);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::MeleeBlockStop);
 
 	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Pressed, this, &ASCharacterBase::StartUseWeaponMagic);
 	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Released, this, &ASCharacterBase::FinishUseWeaponMagic);
@@ -192,7 +192,7 @@ void ASCharacterBase::MoveRight(float Value)
 /*************************************************************************/
 /* Melee Weapon Attack */
 /*************************************************************************/
-void ASCharacterBase::WeaponAttack()
+void ASCharacterBase::MeleeAttack()
 {
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
@@ -297,10 +297,8 @@ bool ASCharacterBase::TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackSta
 /* Melee Weapon Block */
 /*************************************************************************/
 
-void ASCharacterBase::WeaponBlockStart()
+void ASCharacterBase::MeleeBlockStart()
 {
-	
-
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
 		ServerTrySetWeaponBlocking(true);
@@ -312,7 +310,7 @@ void ASCharacterBase::WeaponBlockStart()
 }
 
 
-void ASCharacterBase::WeaponBlockStop()
+void ASCharacterBase::MeleeBlockStop()
 {
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{

@@ -73,6 +73,4 @@ Plugins/*/Intermediate/*
 # Cache files for the editor to use
 DerivedDataCache/*
 
-# MagicalKnight Animation Assetets
-Content/MagicalKnight_Set/*
-Content/SlaughterOfEvil/Animations/DemonWarrior/MagicalKnight_Retarget/*
+

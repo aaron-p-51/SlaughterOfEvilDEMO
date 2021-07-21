@@ -28,6 +28,12 @@ public:
 
 	virtual bool IsBlocking() = 0;
 	virtual void WeaponMagicChargeChange(bool Value) = 0;
+
+	
+	virtual void MeleeAttack() = 0;
+
+	virtual void MeleeBlockStart() = 0;
+	virtual void MeleeBlockStop() = 0;
 	//virtual bool TrySetMagicCharge(bool Charged) = 0;
 
 
