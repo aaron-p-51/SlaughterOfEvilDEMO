@@ -207,10 +207,10 @@ public:
 	void MoveRight(float Value);
 
 	/*************************************************************************/
-	/* Weapon Attack*/
+	/* Melee Weapon Attack*/
 	/*************************************************************************/
-	UFUNCTION()
-	void WeaponAttack();
+	UFUNCTION(BlueprintCallable)
+	virtual void MeleeAttack() override;
 
 	UFUNCTION(Server, Reliable)
 	void ServerTryMeleeAttack();
@@ -222,14 +222,14 @@ public:
 
 
 	/*************************************************************************/
-	/* Weapon Block*/
+	/* Melee Weapon Block*/
 	/*************************************************************************/
 
 	UFUNCTION()
-	void WeaponBlockStart();
+	virtual void MeleeBlockStart() override;
 
 	UFUNCTION()
-	void WeaponBlockStop();
+	virtual void MeleeBlockStop() override;
 
 	UFUNCTION(Server, Reliable)
 	void ServerTrySetWeaponBlocking(bool IsBlocking);
