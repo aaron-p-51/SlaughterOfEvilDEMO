@@ -6,6 +6,9 @@
 #include "Player/SCharacterBase.h"
 #include "SEnemyBase.generated.h"
 
+
+class UAIGroupControlComponent;
+
 /**
  * 
  */
@@ -20,15 +23,28 @@ class SLAUGHTEROFEVILDEMO_API ASEnemyBase : public ASCharacterBase
 
 protected:
 
+	UPROPERTY(EditAnywhere)
+	bool bIsNearField;
+
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* AttackForwardMontage;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UAIGroupControlComponent* AIGroupControlComp;
 
 
  /**
   * Methods
   */
 
+protected:
+	// Called when the game starts
+	virtual void BeginPlay() override;
+
 public:
+
+	ASEnemyBase();
+
 	virtual void MeleeAttack() override;
 	
 };

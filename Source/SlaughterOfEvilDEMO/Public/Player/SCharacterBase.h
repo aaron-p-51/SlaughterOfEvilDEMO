@@ -296,6 +296,13 @@ public:
 	FORCEINLINE EMagicUseState GetMagicUseState() const { return MagicUseState; }
 
 
+	/*************************************************************************/
+	/* Accessors */
+	/*************************************************************************/
+
+	/*UFUNCTION()
+	FTransform GetFPPCameraTransform() const;*/
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
