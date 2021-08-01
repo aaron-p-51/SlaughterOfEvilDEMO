@@ -17,19 +17,39 @@ void ASEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	/*if (AIGroupControlComp)
+	if (AIGroupControlComp)
 	{
-		EGroupField Field = bIsNearField ? EGroupField::EGF_Near : EGroupField::EGF_Far;
-		AIGroupControlComp->GroupControllerData.AssignedGroupField = Field;
-	}*/
+		AIGroupControlComp->OnTriggerAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerMeleeAttack);
+		AIGroupControlComp->OnTriggerAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerRangeAttack);
+	}
+
 }
 
+
+void ASEnemyBase::AIGroupControllerTriggerMeleeAttack(AActor* GroupTarget)
+{
+	UE_LOG(LogTemp, Warning, TEXT("AIGroupControllerTriggerMeleeAttack"));
+	MeleeAttack();
+}
+
+void ASEnemyBase::AIGroupControllerTriggerRangeAttack(AActor* GroupTarget)
+{
+	UE_LOG(LogTemp, Warning, TEXT("AIGroupControllerTriggerRangeAttack"));
+}
 
 void ASEnemyBase::MeleeAttack()
 {
 	UE_LOG(LogTemp, Warning, TEXT("EnemyBase.cpp MeleeAttack"));
 	if (AttackForwardMontage && GetMesh())
 	{
-		GetMesh()->GetAnimInstance()->Montage_Play(AttackForwardMontage);
+		auto AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance)
+		{
+			if (AnimInstance->IsAnyMontagePlaying() == false)
+			{
+				AnimInstance->Montage_Play(AttackForwardMontage);
+			}
+		}
+	
 	}
 }

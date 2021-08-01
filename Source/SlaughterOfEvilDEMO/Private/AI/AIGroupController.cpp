@@ -88,6 +88,15 @@ void AAIGroupController::OnGroupTimerTick()
 	for (auto AIControlledGroupsIt = AIControlledGroups.CreateConstIterator(); AIControlledGroupsIt; ++AIControlledGroupsIt)
 	{
 		AActor* GroupTarget = AIControlledGroupsIt->Key;
+		if (GetNumberOfAIGroupActorsAssignedToField(GroupTarget, EGroupField::EGF_Near) < NearFieldMaxActorCount)
+		{
+			AActor* ClosestFarFieldActor = GetClosestGroupControlledActorInField(GroupTarget, EGroupField::EGF_Far);
+			if (ClosestFarFieldActor)
+			{
+				AssignGroupField(ClosestFarFieldActor, EGroupField::EGF_Near);
+			}
+		}
+
 		if (GetNumberOfAIGroupActorsAssignedToField(GroupTarget, EGroupField::EGF_Near) > NearFieldMaxActorCount)
 		{
 			// Move farthest actor away from  GroupTarget to FarField
@@ -131,7 +140,7 @@ FVector AAIGroupController::GetDesiredLocationMaxSeparation(AActor* GroupTarget,
 		FOVRangeRight = -HalfNearFieldMaxFOV + 180.f;
 		if (FOVRangeRight > 360.f) FOVRangeRight -= 360.f;
 
-		FieldRadius = NearFieldRadius;
+		FieldRadius = FMath::RandRange(ActorFieldRadius, NearFieldRadius);
 	}
 	else if (GroupControlData.AssignedGroupField == EGroupField::EGF_Far)
 	{
@@ -141,7 +150,7 @@ FVector AAIGroupController::GetDesiredLocationMaxSeparation(AActor* GroupTarget,
 		FOVRangeRight = -HalfFarFieldMaxFOV + 180.f;
 		if (FOVRangeRight > 360.f) FOVRangeRight -= 360.f;
 
-		FieldRadius = FarFieldRadius;
+		FieldRadius = FMath::RandRange(NearFieldRadius, FarFieldRadius);
 	}
 	else
 	{
@@ -187,6 +196,10 @@ FVector AAIGroupController::GetDesiredLocationMaxSeparation(AActor* GroupTarget,
 		}
 
 		float MaxAngleMidPoint = ((DesiredPositionAngles[MaxAngleIndex] - DesiredPositionAngles[MaxAngleIndex - 1]) / 2.f) + DesiredPositionAngles[MaxAngleIndex - 1];
+
+		// Apply a bit of randomness
+		MaxAngleMidPoint += FMath::RandRange(-15.f, 15.f);
+
 		MaxAngleMidPoint -= 180.f;
 		if (MaxAngleMidPoint < 0.f) MaxAngleMidPoint += 360.f;
 
@@ -372,6 +385,26 @@ AActor* AAIGroupController::GetFarthestGroupControlledActorInField(AActor* Group
 }
 
 
+AActor* AAIGroupController::GetClosestGroupControlledActorInField(AActor* GroupTarget, EGroupField Field)
+{
+	TArray<AActor*> ActorsInField;
+	GetAllAIGroupControlActorsInField(GroupTarget, Field, ActorsInField);
+
+	float MinDistance = FLT_MAX;
+	AActor* MinDistanceActor = nullptr;
+	for (auto& Actor : ActorsInField)
+	{
+		float Distance = (Actor->GetActorLocation() - GroupTarget->GetActorLocation()).SizeSquared();
+		if (Distance < MinDistance)
+		{
+			MinDistance = Distance;
+			MinDistanceActor = Actor;
+		}
+	}
+
+	return MinDistanceActor;
+}
+
 bool AAIGroupController::IsAllowedInNearFeild(AActor* AIGroupControlledActor) const
 {
 	if (!AIGroupControlledActor) return false;
@@ -434,8 +467,6 @@ bool AAIGroupController::InValidFOV(AActor* GroupTarget, AActor* AIGroupControll
 	float Angle = GetAngleGroupTargetForwardToAIGroupActor(GroupTarget, AIGroupControlledActor);
 
 	
-
-
 	if (AIGroupControlData.AssignedGroupField == EGroupField::EGF_Near)
 	{
 		float FOV = (FOVRange == EFOVRange::EFR_MaxFOV) ? HalfNearFieldMaxFOV : HalfNearFieldAttackFOV;
@@ -584,6 +615,20 @@ void AAIGroupController::SetAssignedGroupField(AActor* AIGroupControlledActor, E
 }
 
 
+void AAIGroupController::TryTriggerAttack(AActor* GroupTarget, AActor* AIGroupControlledActor)
+{
+	if (!AIGroupControlledActor) return;
+
+	if (InValidFOV(GroupTarget, AIGroupControlledActor, EFOVRange::EFR_AttackFOV))
+	{
+		auto GroupControlComp = GetAIGroupControlComponent(AIGroupControlledActor);
+		if (GroupControlComp)
+		{
+			GroupControlComp->TriggerAttack();
+		}
+	}
+}
+
 void AAIGroupController::AssignGroupField(AActor* AIGroupControlledActor, EGroupField GroupField) const
 {
 	if (!AIGroupControlledActor) return;
@@ -630,6 +675,23 @@ EGroupField AAIGroupController::DecreaseFieldPresence(AActor* AIGroupControlledA
 	return EGroupField::EGF_None;
 }
 
+
+void AAIGroupController::GetAllAIGroupControlActorsInField(AActor* GroupTarget, EGroupField GroupField, TArray<AActor*>& ActorsInField)
+{
+	if (!GroupTarget) return;
+
+	FAIControlledGroup* AIControlGroup = AIControlledGroups.Find(GroupTarget);
+	if (AIControlGroup)
+	{
+		for(auto& Actor : AIControlGroup->GroupActors)
+		{
+			if (GetActorGroupData(Actor).AssignedGroupField == GroupField)
+			{
+				ActorsInField.Add(Actor);
+			}
+		}
+	}
+}
 
 UAIGroupControlComponent* AAIGroupController::GetAIGroupControlComponent(AActor* AIGroupControlledActor) const
 {

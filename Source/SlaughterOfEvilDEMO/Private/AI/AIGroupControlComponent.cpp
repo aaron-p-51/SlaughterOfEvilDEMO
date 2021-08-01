@@ -9,6 +9,14 @@ UAIGroupControlComponent::UAIGroupControlComponent()
 
 }
 
+void UAIGroupControlComponent::TriggerRangeAttack() const
+{
+	OnTriggerRangeAttack.Broadcast(GroupControllerData.TargetActor);
+}
 
+void UAIGroupControlComponent::TriggerAttack() const
+{
+	OnTriggerAttack.Broadcast(GroupControllerData.TargetActor);
+}
 
 

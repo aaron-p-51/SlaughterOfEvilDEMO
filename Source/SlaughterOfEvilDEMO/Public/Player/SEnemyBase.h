@@ -41,6 +41,12 @@ protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
+	void AIGroupControllerTriggerMeleeAttack(AActor* GroupTarget);
+
+	UFUNCTION()
+	void AIGroupControllerTriggerRangeAttack(AActor* GroupTarget);
+
 public:
 
 	ASEnemyBase();
