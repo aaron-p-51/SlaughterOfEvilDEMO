@@ -11,6 +11,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
 #include "Math/UnrealMathUtility.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Game Includes
@@ -47,6 +48,8 @@ ASMeleeWeaponBase::ASMeleeWeaponBase()
 	MagicChargeComp = CreateDefaultSubobject<USMagicChargeComponent>(TEXT("MagicChargeComp"));
 
 	bWeaponVisibility = true;
+
+	bReplicates = true;
 }
 
 
@@ -69,8 +72,11 @@ void ASMeleeWeaponBase::BeginPlay()
 		CacheDamageTraceArguments();
 	}
 
+
 	
 }
+
+
 
 
 void ASMeleeWeaponBase::CacheDamageTraceArguments()
@@ -92,10 +98,12 @@ void ASMeleeWeaponBase::Tick(float DeltaTime)
 
 	if ((GetLocalRole() == ENetRole::ROLE_Authority) && (MeleeWeaponState == EMeleeWeaponState::EMWS_Attacking))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Weapon Trace"));
 		bool Hit = CheckForAttackTraceCollision();
 	}
 }
+
+
+
 
 
 bool ASMeleeWeaponBase::CheckForAttackTraceCollision()
@@ -232,3 +240,91 @@ bool ASMeleeWeaponBase::SetIsBlocking(bool Blocking)
 
 }
 
+
+#pragma region Weapon Setup
+
+void ASMeleeWeaponBase::SetOwningPawn(ASCharacterBase* NewOwner)
+{
+	if (NewOwner != MyPawn)
+	{
+		SetInstigator(NewOwner);
+		MyPawn = NewOwner;
+		SetOwner(NewOwner);
+	}
+}
+
+
+void ASMeleeWeaponBase::OnRep_MyPawn()
+{
+	if (MyPawn)
+	{
+		OnEnterInventory(MyPawn);
+	}
+	else
+	{
+		OnLeaveInventory();
+	}
+}
+
+
+void ASMeleeWeaponBase::OnEnterInventory(ASCharacterBase* NewOwner)
+{
+	SetOwningPawn(NewOwner);
+}
+
+
+void ASMeleeWeaponBase::OnLeaveInventory()
+{
+
+}
+
+
+void ASMeleeWeaponBase::OnEquip()
+{
+	AttachMeshToPawn();
+}
+
+
+void ASMeleeWeaponBase::AttachMeshToPawn()
+{
+	if (!MyPawn) return;
+
+	GetRootComponent()->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+	MeshComp->SetHiddenInGame(true);
+
+	FName AttackSocketName = MyPawn->GetWeaponSocketName();
+	if (MyPawn->IsLocallyControlled())
+	{
+		if (GetLocalRole() != ENetRole::ROLE_Authority)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AttachMeshToPawn, not server"));
+		}
+		auto MyPawnFPP = MyPawn->GetFirstPersonMesh();
+		if (MyPawnFPP)
+		{
+			MeshComp->SetHiddenInGame(false);
+			GetRootComponent()->AttachToComponent(MyPawnFPP, FAttachmentTransformRules::KeepRelativeTransform, AttackSocketName);
+
+		}
+	}
+	else
+	{
+		auto MyPawnTPP = MyPawn->GetThirdPersonMesh();
+		if (MyPawnTPP)
+		{
+			MeshComp->SetHiddenInGame(false);
+			GetRootComponent()->AttachToComponent(MyPawnTPP, FAttachmentTransformRules::KeepRelativeTransform, AttackSocketName);
+		}
+	}
+}
+
+#pragma endregion
+
+void ASMeleeWeaponBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ASMeleeWeaponBase, MyPawn);
+
+
+}

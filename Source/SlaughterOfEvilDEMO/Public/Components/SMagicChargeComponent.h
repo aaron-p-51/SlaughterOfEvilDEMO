@@ -20,6 +20,10 @@ class SLAUGHTEROFEVILDEMO_API USMagicChargeComponent : public UActorComponent
  */
  private:
 
+	/** Can Charge be applied */
+	UPROPERTY(EditDefaultsOnly)
+	uint32 bCanMagicCharge : 1;
+
 	/** Is the attached actor currently magic charged, will only be valid on server */
 	UPROPERTY(VisibleAnywhere)
 	uint32 bIsMagicCharged : 1;
@@ -56,6 +60,8 @@ public:
 	 * [Server] Is the owning actor magic charged
 	 */
 	FORCEINLINE bool IsMagicCharged() const { return bIsMagicCharged; }
+
+	void SetCanMagicCharge(bool value) { bCanMagicCharge = value; }
 
 	///**
 	// * [Server] Does the owning actor of this components owner (example, SMagicComponent->SMeleeWeaponBase->CharacterBase) need

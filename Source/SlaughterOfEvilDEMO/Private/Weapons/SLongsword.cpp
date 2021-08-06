@@ -66,10 +66,10 @@ void ASLongsword::ReleaseMagicCharge(FTransform& ReleaseTransform)
 			auto MagicProjectile = Cast<ASMagicProjectileBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DefaultMagicProjectile, ReleaseTransform));
 			if (MagicProjectile)
 			{
-				MagicProjectile->InitialSpeed = 1000.f;
+				/*MagicProjectile->InitialSpeed = 1000.f;
 				MagicProjectile->Mass = 1.f;
 				MagicProjectile->Drag = 0.f;
-				MagicProjectile->Gravity = FVector::ZeroVector;
+				MagicProjectile->Gravity = FVector::ZeroVector;*/
 				MagicProjectile->SetOwner(this);
 				MagicProjectile->SetInstigator(Cast<APawn>(GetOwner()));
 

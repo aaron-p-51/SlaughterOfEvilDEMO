@@ -98,10 +98,10 @@ struct FAIGroupControlData
 	AActor* TargetActor;
 
 	UPROPERTY()
-	int32 AttackCounter;
+	float LastAttackTime = 0.f;
 
 	UPROPERTY()
-	int32 RangeAttackCounter;
+	int32 LastRangeAttackTime = 0.f;
 
 };
 
@@ -299,6 +299,9 @@ protected:
 	AActor* GetClosestGroupControlledActorInField(AActor* GroupTarget, EGroupField Field);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
+	void GetAllGroupControlledActorsCurrentlyInField(AActor* GroupTarget, EGroupField Field, TArray<AActor*>& ActorsInField);
+
+	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	bool IsAllowedInNearFeild(AActor* AIGroupControlledActor) const;
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
@@ -338,10 +341,14 @@ protected:
 	void TryTriggerAttack(AActor* GroupTarget, AActor* AIGroupControlledActor);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
+	void TryTriggerRangeAttack(AActor* GroupTarget, AActor* AIGroupControlledActor);
+
+	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	void SetGroupTargetForAIGroupActor(AActor* GroupTarget, AActor* AIGroupControlledActor);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	void RegisterGroupTargetWithAIGroupActor(AActor* GroupTarget, AActor* AIGroupControlledActor, EGroupField Feild);
+
 
 	void GroupTargetFieldEntered(AActor* GroupTarget, AActor* AIGroupControlledActor, EGroupField EnteredField, EGroupField PreviousField);
 

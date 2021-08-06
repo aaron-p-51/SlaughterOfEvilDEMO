@@ -41,5 +41,8 @@ public:
 	void TriggerAttack()const;
 
 
+	void TriggerAttackUpdate();
+
+	void TriggerRangeAttackUpdate();
 		
 };

@@ -9,6 +9,10 @@
 class USphereComponent;
 class UAIGroupTargetActorComponent;
 
+
+
+
+
 /**
  * 
  */
@@ -19,6 +23,10 @@ class SLAUGHTEROFEVILDEMO_API ASPlayerBase : public ASCharacterBase
 
 protected:
 
+	/*************************************************************************/
+	/* AI Group Controller */
+	/*************************************************************************/
+
 	UPROPERTY(EditDefaultsOnly)
 	USphereComponent* AIGroupControllerTargetActorField;
 
@@ -28,14 +36,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	USphereComponent* AIGroupControllerTargetFarField;
 
-
-
 	UPROPERTY(EditDefaultsOnly)
 	UAIGroupTargetActorComponent* AIGroupTargetActorComp;
 
-	public:
-		ASPlayerBase();
+public:
 
-	
-	
+	ASPlayerBase();
+
 };

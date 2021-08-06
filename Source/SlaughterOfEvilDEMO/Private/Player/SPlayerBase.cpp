@@ -6,12 +6,16 @@
 // Engine Includes
 #include "Components/SphereComponent.h"
 
+
 // Game Includes
 #include "AI/AIGroupTargetActorComponent.h"
 
+
+
+
 ASPlayerBase::ASPlayerBase()
 {
-
+	
 	AIGroupControllerTargetActorField = CreateDefaultSubobject<USphereComponent>(TEXT("AIGroupControllerTargetActorField"));
 	if (AIGroupControllerTargetActorField)
 	{
@@ -35,4 +39,6 @@ ASPlayerBase::ASPlayerBase()
 
 	AIGroupTargetActorComp = CreateDefaultSubobject<UAIGroupTargetActorComponent>(TEXT("AIGroupTargetActorComp"));
 
+
 }
+

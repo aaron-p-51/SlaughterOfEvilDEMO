@@ -7,13 +7,14 @@
 USMagicChargeComponent::USMagicChargeComponent()
 {
 	bIsMagicCharged = false;
+	bCanMagicCharge = true;
 }
 
 
 bool USMagicChargeComponent::TrySetMagicCharge(const AActor* ActorApplyingCharge)
 {
-	// Enusre running on server, valid  input parameter and not currently charged
-	if (GetOwnerRole() == ENetRole::ROLE_Authority && ActorApplyingCharge && !bIsMagicCharged)
+	// Ensure running on server, valid  input parameter and not currently charged
+	if (bCanMagicCharge && GetOwnerRole() == ENetRole::ROLE_Authority && ActorApplyingCharge && !bIsMagicCharged)
 	{
 		// If owner must face charging source and not within valid angle then charge will not be applies
 		if ((bOwnerMustFaceChargeSource) && (!OwnerWithinValidAngle(ActorApplyingCharge))) return false;

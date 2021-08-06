@@ -31,6 +31,8 @@ public:
 
 	
 	virtual void MeleeAttack() = 0;
+	virtual void MeleeAttackCanCauseDamage(bool Value) = 0;
+	virtual void MeleeAttackFinished() = 0;
 
 	virtual void MeleeBlockStart() = 0;
 	virtual void MeleeBlockStop() = 0;

@@ -10,6 +10,7 @@ class UCapsuleComponent;
 class USphereComponent;
 class USMagicChargeComponent;
 class ASMagicProjectileBase;
+class UAnimMontage;
 
 UENUM(BlueprintType)
 enum class EMeleeWeaponState : uint8
@@ -20,6 +21,74 @@ enum class EMeleeWeaponState : uint8
 };
 
 
+USTRUCT(BlueprintType)
+struct FMeleeWeaponAttacks
+{
+	GENERATED_BODY()
+
+	/** Animation for owning pawn played for first person and server */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* FirstPerson;
+
+	/** Animation for owning pawn played for third person */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* ThirdPerson;
+	
+};
+
+/**
+ * Charge attacks are attacks where attack is started and held until released
+ * at a later point in time. There will be a looping animation needed
+ */
+USTRUCT(BlueprintType)
+struct FMeleeWeaponChargeAttacks
+{
+	GENERATED_BODY()
+
+	/** Animation for first person to start charge attack */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* FirstPersonStart;
+
+	/** Animation for third person to start charge attack */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* ThirdPersonStart;
+
+	/** Animation for first person to finish charge attack */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* FirstPersonFinish;
+
+	/** Animation for third person to finish charge attack */
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* ThirdPersonFinish;
+
+	
+};
+
+/**
+ * Melee Weapon data:
+ *		A FPP and TPP weapon will exist for each player. Depending of the players perspective only the proper weapon will be shown
+ *		All game play essential collisions will only be calculate from the FPPMeleeWeapon on the server.
+ */
+USTRUCT(BlueprintType)
+struct FMeleeWeaponData
+{
+	GENERATED_BODY()
+
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation | Attacks")
+	TArray<FMeleeWeaponAttacks> Attacks;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation | ChargeAttacks")
+	TArray<FMeleeWeaponChargeAttacks> ChargeAttacks;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation | MagicChargeAttacks")
+	TArray<FMeleeWeaponChargeAttacks> MagicChargeAttacks;
+
+	/** Impact montage when weapon is blocking, will only play on locally controlled character (FPP) */
+	UPROPERTY(EditDefaultsOnly, Category = "Block | First Person")
+	UAnimMontage* BlockImpactMontage;
+};
+
 UCLASS(Abstract, Blueprintable)
 class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
 {
@@ -29,6 +98,10 @@ class SLAUGHTEROFEVILDEMO_API ASMeleeWeaponBase : public AActor
  * Members
  */
 protected:
+
+	/** Current owner of this weapon */
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_MyPawn)
+	class ASCharacterBase* MyPawn;
 
 	/*************************************************************************/
 	/* Components*/
@@ -124,6 +197,10 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	/** [Server + Client] Set the owning pawn for this weapon */
+	void SetOwningPawn(ASCharacterBase* NewOwner);
+
+
 	/*************************************************************************/
 	/* Magic  */
 	/*************************************************************************/
@@ -195,11 +272,29 @@ public:
 	 */
 	FORCEINLINE void SetWeaponVisibility(bool Value) { bWeaponVisibility = Value; }
 
+	UFUNCTION()
+	void OnEquip();
+
+	UFUNCTION()
+	void OnEnterInventory(ASCharacterBase* NewOwner);
 
 protected:
 
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	void OnRep_MyPawn();
+
+
+
+	UFUNCTION()
+	void OnLeaveInventory();
+
+
+
+	UFUNCTION()
+	void AttachMeshToPawn();
 
 
 private:

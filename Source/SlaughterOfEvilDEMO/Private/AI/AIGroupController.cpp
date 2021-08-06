@@ -108,6 +108,8 @@ void AAIGroupController::OnGroupTimerTick()
 		{
 			AActor* FarthestActor = GetFarthestGroupControlledActorInField(GroupTarget, EGroupField::EGF_Far);
 			AssignGroupField(FarthestActor, EGroupField::EGF_None);
+
+			// TODO: Remove GroupTarget if assigned to EGroupField::None
 		}
 
 		for(auto& GroupTargetActor : AIControlledGroupsIt->Value.GroupActors)
@@ -405,6 +407,21 @@ AActor* AAIGroupController::GetClosestGroupControlledActorInField(AActor* GroupT
 	return MinDistanceActor;
 }
 
+void AAIGroupController::GetAllGroupControlledActorsCurrentlyInField(AActor* GroupTarget, EGroupField Field, TArray<AActor*>& ActorsInField)
+{
+	auto ControlGroup = AIControlledGroups.Find(GroupTarget);
+	if (ControlGroup)
+	{
+		for (auto& Actor : ControlGroup->GroupActors)
+		{
+			if (GetActorGroupData(Actor).CurrentGroupField == Field)
+			{
+				ActorsInField.Add(Actor);
+			}
+		}
+	}
+}
+
 bool AAIGroupController::IsAllowedInNearFeild(AActor* AIGroupControlledActor) const
 {
 	if (!AIGroupControlledActor) return false;
@@ -570,7 +587,7 @@ void AAIGroupController::SetDestinationInField(AActor* GroupTarget, AActor* AIGr
 		AIGroupControlComponent->GroupControllerData.DesiredLocation = MoveToLocation;
 	}
 
-	UKismetSystemLibrary::DrawDebugSphere(GetWorld(), MoveToLocation, 10.f, 12, FColor::White, 5.f, 2.f);
+	
 }
 
 
@@ -625,6 +642,20 @@ void AAIGroupController::TryTriggerAttack(AActor* GroupTarget, AActor* AIGroupCo
 		if (GroupControlComp)
 		{
 			GroupControlComp->TriggerAttack();
+		}
+	}
+}
+
+void AAIGroupController::TryTriggerRangeAttack(AActor* GroupTarget, AActor* AIGroupControlledActor)
+{
+	if (!AIGroupControlledActor) return;
+
+	if (InValidFOV(GroupTarget, AIGroupControlledActor, EFOVRange::EFR_AttackFOV))
+	{
+		auto GroupControlComp = GetAIGroupControlComponent(AIGroupControlledActor);
+		if (GroupControlComp)
+		{
+			GroupControlComp->TriggerRangeAttack();
 		}
 	}
 }

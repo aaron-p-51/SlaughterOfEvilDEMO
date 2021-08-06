@@ -1,16 +1,19 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ //Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "SMeleeWeaponWielder.h"
+#include "SProjectileMagicCaster.h"
+#include "SProjectileMagicTarget.h"
 #include "SCharacterBase.generated.h"
 
 
 
 class UCameraComponent;
 class ASMeleeWeaponBase;
+class ASMagicProjectileBase;
 
 
 UENUM(BlueprintType)
@@ -21,17 +24,6 @@ enum class EMeleeAttackState : uint8
 	EMAS_CauseDamage	UMETA(DisplayName = "CauseDamage")
 };
 
-/**
- * Melee Attach swing directions
- */
-UENUM(BlueprintType)
-enum class EMeleeAttackDirection : uint8
-{
-	EMAD_Left			UMETA(DisplayName = "Left"),
-	EMAD_LeftDown		UMETA(DisplayName = "LeftDown"),
-	EMAD_Right			UMETA(DisplayName = "Right"),
-	EMAD_RightDown		UMETA(DisplayName = "RightDown")
-};
 
 UENUM(BlueprintType)
 enum class EMagicUseState : uint8
@@ -44,74 +36,114 @@ enum class EMagicUseState : uint8
 	EMUS_Finish			UMETA(DisplayName = "Finish")		// Weapon is magic charged, signal release of magic
 };
 
-
-
-/**
- * Melee Weapon data:
- *		A FPP and TPP weapon will exist for each player. Depending of the players perspective only the proper weapon will be shown
- *		All game play essential collisions will only be calculate from the FPPMeleeWeapon on the server.
- */
 USTRUCT(BlueprintType)
-struct FMeleeWeaponData
+struct FMeleeAttack
 {
 	GENERATED_BODY()
 
-	/** Parent class of melee weapons (ASMeleeWeaponBase) */
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
+	UAnimMontage* TPPMeleeAttack;
 
-	/** Melee weapon for TPP, this will only be visible for simulated proxies */
-	UPROPERTY(VisibleAnywhere)
-	ASMeleeWeaponBase* TPPMeleeWeapon;
-
-	/** Melee weapon for TPP, used for all game play essentials calculations and collisions */
-	UPROPERTY(VisibleAnywhere);
-	ASMeleeWeaponBase* FPPMeleeWeapon;
-
-	/** Is this the starting weapon, if multiple are set the first weapon spawned from MeleeWeaponData will be set as starting Weapon */
 	UPROPERTY(EditDefaultsOnly)
-	bool bIsStartingWeapon;
+	UAnimMontage* FPPMeleeAttack;
 
-	/** Socket on mesh where to attach MeleeWeapon and FPPMeleeWeapon, Socket needs to exist on both on Mesh and FirstPersonMesh */
+	/** Only used for AI, min distance from target to use this MeleeAttack  */
 	UPROPERTY(EditDefaultsOnly)
-	FName MeleeWeaponSocketName = FName(TEXT("RightHandMeleeWeaponSocket"));
+	float MinDistance;
 
-	/**
-	 * Attach montages for FPP. Montages should include notify begin and end points to indicate when damage can be applied
-	 * These montages will play on players character on server
-	 */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
-	TMap<EMeleeAttackDirection, UAnimMontage*> FPPAttackMontages;
-
-	/**
-	 * Attach montages for TPP. Montages are only for aesthetics on Simulated proxies.
-	 */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
-	TMap<EMeleeAttackDirection, UAnimMontage*> TPPAttackMontages;
-
-	/** Animation montage for FPP when starting to use magic (charging to use) */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
-	UAnimMontage* FPPMagicStartMontage;
-
-	/** Animation montage for FPP to use magic, done after fully charged (FPPMagicStartMontage)  */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
-	UAnimMontage* FPPMagicFinishMontage;
-
-	/** Animation montage for TPP when starting to use magic (charging to use) */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
-	UAnimMontage* TPPMagicStartMontage;
-
-	/** Animation montage for TPP when starting to use magic (charging to use) */
-	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
-	UAnimMontage* TPPMagicFinishMontage;
-
-	/** Impact montage when weapon is blocking, will only play on locally controlled character (FPP) */
-	UPROPERTY(EditDefaultsOnly, Category = "Block | First Person")
-	UAnimMontage* BlockImpactMontage;
+	/** Only used for AI, max distance from target to use this MeleeAttack  */
+	UPROPERTY(EditDefaultsOnly)
+	float MaxDistance;
 };
 
+
+///**
+// * Melee Weapon data:
+// *		A FPP and TPP weapon will exist for each player. Depending of the players perspective only the proper weapon will be shown
+// *		All game play essential collisions will only be calculate from the FPPMeleeWeapon on the server.
+// */
+//USTRUCT(BlueprintType)
+//struct FMeleeWeaponData
+//{
+//	GENERATED_BODY()
+//
+//	/** Parent class of melee weapons (ASMeleeWeaponBase) */
+//	UPROPERTY(EditDefaultsOnly)
+//	TSubclassOf<ASMeleeWeaponBase> MeleeWeaponClass;
+//
+//	/** Melee weapon for TPP, this will only be visible for simulated proxies */
+//	UPROPERTY(VisibleAnywhere)
+//	ASMeleeWeaponBase* TPPMeleeWeapon;
+//
+//	/** Melee weapon for TPP, used for all game play essentials calculations and collisions */
+//	UPROPERTY(VisibleAnywhere);
+//	ASMeleeWeaponBase* FPPMeleeWeapon;
+//
+//	/** Is this the starting weapon, if multiple are set the first weapon spawned from MeleeWeaponData will be set as starting Weapon */
+//	UPROPERTY(EditDefaultsOnly)
+//	bool bIsStartingWeapon;
+//
+//	/** Socket on mesh where to attach MeleeWeapon and FPPMeleeWeapon, Socket needs to exist on both on Mesh and FirstPersonMesh */
+//	UPROPERTY(EditDefaultsOnly)
+//	FName MeleeWeaponSocketName = FName(TEXT("RightHandMeleeWeaponSocket"));
+//
+//	UPROPERTY(EditDefaultsOnly)
+//	TArray<FMeleeAttack> MeleeAttacks;
+//
+//	/** Animation montage for FPP when starting to use magic (charging to use) */
+//	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
+//	UAnimMontage* FPPMagicStartMontage;
+//
+//	/** Animation montage for FPP to use magic, done after fully charged (FPPMagicStartMontage)  */
+//	UPROPERTY(EditDefaultsOnly, Category = "Attack | First Person")
+//	UAnimMontage* FPPMagicFinishMontage;
+//
+//	/** Animation montage for TPP when starting to use magic (charging to use) */
+//	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
+//	UAnimMontage* TPPMagicStartMontage;
+//
+//	/** Animation montage for TPP when starting to use magic (charging to use) */
+//	UPROPERTY(EditDefaultsOnly, Category = "Attack | Third Person")
+//	UAnimMontage* TPPMagicFinishMontage;
+//
+//	/** Impact montage when weapon is blocking, will only play on locally controlled character (FPP) */
+//	UPROPERTY(EditDefaultsOnly, Category = "Block | First Person")
+//	UAnimMontage* BlockImpactMontage;
+//};
+
+
+USTRUCT(BlueprintType)
+struct FProjectileMagicCastData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimMontage* TPPMagicCastAnimMontage;
+
+	UPROPERTY(EditDefaultsOnly)
+	UAnimMontage* FPPMagicCastAnimMontage;
+
+	/** Only used for AI, min distance from target to use this MeleeAttack  */
+	UPROPERTY(EditDefaultsOnly)
+	float MinDistance;
+
+	/** Only used for AI, max distance from target to use this MeleeAttack  */
+	UPROPERTY(EditDefaultsOnly)
+	float MaxDistance;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ASMagicProjectileBase> MagicProjectile;
+
+	UPROPERTY(EditDefaultsOnly)
+	FName SpawnSocket;
+
+	UPROPERTY(EditDefaultsOnly)
+	float ProjectileLaunchSpeed;
+};
+
+
 UCLASS()
-class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, public ISMeleeWeaponWielder
+class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, public ISMeleeWeaponWielder, public ISProjectileMagicCaster, public ISProjectileMagicTarget
 {
 	GENERATED_BODY()
 
@@ -138,10 +170,32 @@ protected:
 
 	/** Inventory of weapons assigned to this player */
 	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
-	TArray<FMeleeWeaponData> MeleeWeaponData;
+	TArray<TSubclassOf<class ASMeleeWeaponBase>> MeleeWeaponInventoryClasses;
 
-	/** Current weapon being used from MeleeWeaponData */
-	uint32 CurrentWeaponIndex;
+	/**  */
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
+	FName WeaponSocket;
+
+	UPROPERTY(Transient, Replicated)
+	TArray<class ASMeleeWeaponBase*> MeleeWeaponInventory;
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentMeleeWeapon)
+	class ASMeleeWeaponBase* CurrentMeleeWeapon;
+
+	///** Current weapon being used from MeleeWeaponData */
+	//uint32 CurrentWeaponIndex;
+
+	/*************************************************************************/
+	/* Magic Attacks */
+	/*************************************************************************/
+
+	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Projectile Magic")
+	TArray<FProjectileMagicCastData> ProjectileMagicCasts;
+
+	uint32 CurrentProjectMagicCastIndex;
+
+	UPROPERTY()
+	USceneComponent* ProjectileHomingTarget;
 
 	/*************************************************************************/
 	/* Animation */
@@ -173,8 +227,7 @@ protected:
 
 private:
 
-	/** Last melee attack direction TODO: remove this and make next melee attack deterministic (faster control for clients) */
-	EMeleeAttackDirection MeleeAttackDirection;
+
 
  /**
   * Methods
@@ -185,6 +238,17 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	
+	FORCEINLINE USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
+
+	FORCEINLINE USkeletalMeshComponent* GetThirdPersonMesh() const { return GetMesh(); }
+
+	FORCEINLINE FName GetWeaponSocketName() const { return WeaponSocket; }
+
+	/** Returns true if local player controller */
+	bool IsFirstPerson() const;
+
 
 	/**
 	 * [Server + Client] Get the pich of the locally controlled character
@@ -216,7 +280,11 @@ public:
 	void ServerTryMeleeAttack();
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayMeleeAttackMontage(EMeleeAttackDirection MeleeAttack);
+	void MulticastPlayMeleeAttackMontage(int32 MeleeAttackIndex);
+
+	virtual void MeleeAttackCanCauseDamage(bool Value) override;
+
+	virtual void MeleeAttackFinished() override;
 
 	bool TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState);
 
@@ -281,6 +349,21 @@ public:
 	UFUNCTION()
 	void ReleaseWeaponMagic();
 
+	/*************************************************************************/
+	/* ISMeleeWeaponWielder overloads*/
+	/*************************************************************************/
+
+	UFUNCTION(BlueprintCallable)
+	virtual void ProjectileMagicAttack() override;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayProjectileMagicAttackMontage(int32 AttackIndex);
+
+	UFUNCTION()
+	virtual void SpawnMagicAttackProjectile() override;
+
+
+
 
 	/*************************************************************************/
 	/* ISMeleeWeaponWielder overloads*/
@@ -303,14 +386,53 @@ public:
 	/*UFUNCTION()
 	FTransform GetFPPCameraTransform() const;*/
 
+
+	virtual TWeakObjectPtr<USceneComponent> GetProjectileHomingTarget() override;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 
 
+	/*************************************************************************/
+	/* Inventory */
+	/*************************************************************************/
+
+	/** [Server] Spawn inventory of melee weapons set in @MeleeWeaponInventoryClasses */
+	void SpawnDefaultInventory();
+
+	/** [Server] Add weapon to MeleeWeaponInventory */
+	void AddWeapon(ASMeleeWeaponBase* Weapon);
+
+	/** [Server] Equip weapon. Weapon must be in MeleeWeaponInventory */
+	void EquipWeapon(ASMeleeWeaponBase* Weapon);
+
+	/** Equip Weapon */
+	UFUNCTION(Server, Reliable)
+	void ServerEquipWeapon(ASMeleeWeaponBase* Weapon);
+
+	/**
+	 * [Server + Client] Update the current weapon
+	 *
+	 * @param NewWeapon			Weapon to set as CurrentWeapon
+	 * @param PreviousWeapon	What will become last weapon equipped after NewWeapon is equipped
+	 *							usually will be set to CurrentWeapon
+	 */
+	void SetCurrentWeapon(ASMeleeWeaponBase* NewWeapon, ASMeleeWeaponBase* PreviousWeapon);
+
+	/** current weapon rep handler */
+	UFUNCTION()
+	void OnRep_CurrentMeleeWeapon(class ASMeleeWeaponBase* LastWeapon);
+
+
 private:	
 
+	/** Called when actor is destroyed used for clean up (deletes inventory) */
+	virtual void Destroyed() override;
+
+	/** spawn inventory, setup initial variables */
+	virtual void PostInitializeComponents() override;
 
 	/*************************************************************************/
 	/* On Rep notifys*/
@@ -322,11 +444,6 @@ private:
 	/* Helper Functions */
 	/*************************************************************************/
 
-	EMeleeAttackDirection GetMeleeAttackDirection() const;
-
-	/** Spawn starting weapons, all weapons in MeleeWeaponData will be spawned and attach the FPP and TPP meshes */
-	UFUNCTION(BlueprintCallable)
-	void SpawnStartingWeapons();
 
 	/**
 	 * [Server] Helper function to check if current weapon in magic charged. Melee weapon is not replicated, will only be
@@ -334,12 +451,16 @@ private:
 	 */
 	bool IsCurrentMeleeWeaponMagicCharged() const;
 
+	bool IsAIControlled() const;
+
 	/**
 	 * [Server + Client] Play matching animation on autonomous and simulated proxies. Do not use to play animations with
 	 * notifies for used for game play progression
 	 */
 	void PlayMontagePairTPPandFPP(UAnimMontage* FPPMontage, UAnimMontage* TPPMontage) const;
 
+
+	void SetProjectileHomingTargetLocation(bool IsCrouching);
 
 
 };
