@@ -33,7 +33,7 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	}
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-	if (SphereComp)
+	if (MeshComp)
 	{
 		MeshComp->SetupAttachment(GetRootComponent());
 	}
@@ -144,6 +144,12 @@ bool ASMagicProjectileBase::DetectHit(TArray<FHitResult>& HitResults) const
 		true
 	);
 
+	for (auto& HitResult : HitResults)
+	{
+		AActor* Actor = HitResult.GetActor();
+		auto Comp = HitResult.GetComponent();
+		UE_LOG(LogTemp, Warning, TEXT("Projectile hit: %s, Component: %s"), *Actor->GetName(), *Comp->GetName());
+	}
 
 	return bHitDetected;
 }

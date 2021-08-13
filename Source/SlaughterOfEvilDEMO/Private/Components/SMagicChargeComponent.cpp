@@ -6,13 +6,16 @@
 // Sets default values for this component's properties
 USMagicChargeComponent::USMagicChargeComponent()
 {
+	bCanEverMagicCharge = false;
 	bIsMagicCharged = false;
-	bCanMagicCharge = true;
+	bCanMagicCharge = false;
 }
 
 
 bool USMagicChargeComponent::TrySetMagicCharge(const AActor* ActorApplyingCharge)
 {
+	if (!bCanEverMagicCharge) return false;
+
 	// Ensure running on server, valid  input parameter and not currently charged
 	if (bCanMagicCharge && GetOwnerRole() == ENetRole::ROLE_Authority && ActorApplyingCharge && !bIsMagicCharged)
 	{
@@ -51,7 +54,7 @@ bool USMagicChargeComponent::OwnerWithinValidAngle(const AActor* ActorApplyingCh
 
 bool USMagicChargeComponent::TryRemoveMagicCharge()
 {
-	if (GetOwnerRole() != ENetRole::ROLE_Authority) return false;
+	if (!bCanEverMagicCharge ||	GetOwnerRole() != ENetRole::ROLE_Authority) return false;
 
 	if (bIsMagicCharged)
 	{

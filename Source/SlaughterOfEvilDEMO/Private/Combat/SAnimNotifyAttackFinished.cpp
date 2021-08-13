@@ -4,7 +4,7 @@
 #include "Combat/SAnimNotifyAttackFinished.h"
 
 // Game Includes
-#include "SMeleeWeaponWielder.h"
+#include "Player/SCharacterBase.h"
 
 void USAnimNotifyAttackFinished::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation)
 {
@@ -12,10 +12,13 @@ void USAnimNotifyAttackFinished::Notify(USkeletalMeshComponent* MeshComp, UAnimS
 
 	if (!MeshComp) return;
 
-	auto MeshOwner = Cast<ISMeleeWeaponWielder>(MeshComp->GetOwner());
+	auto MeshOwner = Cast<ASCharacterBase>(MeshComp->GetOwner());
 	if (MeshOwner)
 	{
-		MeshOwner->MeleeAttackFinished();
+		auto Weapon = MeshOwner->GetCurrentMeleeWeapon();
+		if (Weapon)
+		{
+			Weapon->OnUseFinish();
+		}
 	}
-
 }

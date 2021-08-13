@@ -12,49 +12,50 @@
 
 
 class UCameraComponent;
-class ASMeleeWeaponBase;
+class ASWeaponBase;
+class ASMeleeWeapon;
 class ASMagicProjectileBase;
 
 
-UENUM(BlueprintType)
-enum class EMeleeAttackState : uint8
-{
-	EMAS_Idle			UMETA(DisplayName = "Idle"),
-	EMAS_Attacking		UMETA(DisplayName = "Attacking"),
-	EMAS_CauseDamage	UMETA(DisplayName = "CauseDamage")
-};
+//UENUM(BlueprintType)
+//enum class EMeleeAttackState : uint8
+//{
+//	EMAS_Idle			UMETA(DisplayName = "Idle"),
+//	EMAS_Attacking		UMETA(DisplayName = "Attacking"),
+//	EMAS_CauseDamage	UMETA(DisplayName = "CauseDamage")
+//};
 
 
-UENUM(BlueprintType)
-enum class EMagicUseState : uint8
-{
+////UENUM(BlueprintType)
+////enum class EMagicUseState : uint8
+////{
+////
+////	EMUS_NoCharge		UMETA(DisplayName = "NoCharge"),	// Weapon is not magic charged
+////	EMUS_Idle			UMETA(DisplayName = "Idle"),		// Weapon is magic charged has not starting using magic
+////	EMUS_Start			UMETA(DisplayName = "Start"),		// Weapon is magic charged, staring to use (charing)
+////	EMUS_Ready			UMETA(DisplayName = "Ready"),		// Weapon is magic charged, ready to use (charged)
+////	EMUS_Finish			UMETA(DisplayName = "Finish")		// Weapon is magic charged, signal release of magic
+////};
 
-	EMUS_NoCharge		UMETA(DisplayName = "NoCharge"),	// Weapon is not magic charged
-	EMUS_Idle			UMETA(DisplayName = "Idle"),		// Weapon is magic charged has not starting using magic
-	EMUS_Start			UMETA(DisplayName = "Start"),		// Weapon is magic charged, staring to use (charing)
-	EMUS_Ready			UMETA(DisplayName = "Ready"),		// Weapon is magic charged, ready to use (charged)
-	EMUS_Finish			UMETA(DisplayName = "Finish")		// Weapon is magic charged, signal release of magic
-};
-
-USTRUCT(BlueprintType)
-struct FMeleeAttack
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly)
-	UAnimMontage* TPPMeleeAttack;
-
-	UPROPERTY(EditDefaultsOnly)
-	UAnimMontage* FPPMeleeAttack;
-
-	/** Only used for AI, min distance from target to use this MeleeAttack  */
-	UPROPERTY(EditDefaultsOnly)
-	float MinDistance;
-
-	/** Only used for AI, max distance from target to use this MeleeAttack  */
-	UPROPERTY(EditDefaultsOnly)
-	float MaxDistance;
-};
+//USTRUCT(BlueprintType)
+//struct FMeleeAttack
+//{
+//	GENERATED_BODY()
+//
+//	UPROPERTY(EditDefaultsOnly)
+//	UAnimMontage* TPPMeleeAttack;
+//
+//	UPROPERTY(EditDefaultsOnly)
+//	UAnimMontage* FPPMeleeAttack;
+//
+//	/** Only used for AI, min distance from target to use this MeleeAttack  */
+//	UPROPERTY(EditDefaultsOnly)
+//	float MinDistance;
+//
+//	/** Only used for AI, max distance from target to use this MeleeAttack  */
+//	UPROPERTY(EditDefaultsOnly)
+//	float MaxDistance;
+//};
 
 
 ///**
@@ -143,7 +144,7 @@ struct FProjectileMagicCastData
 
 
 UCLASS()
-class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, public ISMeleeWeaponWielder, public ISProjectileMagicCaster, public ISProjectileMagicTarget
+class SLAUGHTEROFEVILDEMO_API ASCharacterBase : public ACharacter, /*public ISMeleeWeaponWielder,*/ /*public ISProjectileMagicCaster,*/ public ISProjectileMagicTarget
 {
 	GENERATED_BODY()
 
@@ -170,17 +171,17 @@ protected:
 
 	/** Inventory of weapons assigned to this player */
 	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
-	TArray<TSubclassOf<class ASMeleeWeaponBase>> MeleeWeaponInventoryClasses;
+	TArray<TSubclassOf<ASWeaponBase>> WeaponInventoryClasses;
 
 	/**  */
 	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Weapons")
 	FName WeaponSocket;
 
 	UPROPERTY(Transient, Replicated)
-	TArray<class ASMeleeWeaponBase*> MeleeWeaponInventory;
+	TArray<ASWeaponBase*> WeaponInventory;
 
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentMeleeWeapon)
-	class ASMeleeWeaponBase* CurrentMeleeWeapon;
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_CurrentWeapon)
+	ASWeaponBase* CurrentWeapon;
 
 	///** Current weapon being used from MeleeWeaponData */
 	//uint32 CurrentWeaponIndex;
@@ -189,10 +190,10 @@ protected:
 	/* Magic Attacks */
 	/*************************************************************************/
 
-	UPROPERTY(EditDefaultsOnly, Category = "Configuration | Projectile Magic")
-	TArray<FProjectileMagicCastData> ProjectileMagicCasts;
+	//UPROPERTY(EditDefaultsOnly, Category = "Configuration | Projectile Magic")
+	//TArray<FProjectileMagicCastData> ProjectileMagicCasts;
 
-	uint32 CurrentProjectMagicCastIndex;
+	/*uint32 CurrentProjectMagicCastIndex;*/
 
 	UPROPERTY()
 	USceneComponent* ProjectileHomingTarget;
@@ -213,16 +214,16 @@ protected:
 	/* State */
 	/*************************************************************************/
 
-	UPROPERTY(Replicated)
-	uint32 bIsBlocking : 1;
+	/*UPROPERTY(Replicated)
+	uint32 bIsBlocking : 1;*/
 
-	UPROPERTY(ReplicatedUsing=OnRep_CurrentWeaponIsMagicCharged)
-	uint32 bCurrentWeaponIsMagicCharged : 1;
+	////UPROPERTY(ReplicatedUsing=OnRep_CurrentWeaponIsMagicCharged)
+	////uint32 bCurrentWeaponIsMagicCharged : 1;
 
-	UPROPERTY(Replicated)
-	EMagicUseState MagicUseState;
+	//UPROPERTY(Replicated)
+	//EMagicUseState MagicUseState;
 
-	EMeleeAttackState MeleeAttackState;
+	//EMeleeAttackState MeleeAttackState;
 
 
 private:
@@ -249,6 +250,7 @@ public:
 	/** Returns true if local player controller */
 	bool IsFirstPerson() const;
 
+	ASMeleeWeapon* GetCurrentMeleeWeapon();
 
 	/**
 	 * [Server + Client] Get the pich of the locally controlled character
@@ -274,36 +276,38 @@ public:
 	/* Melee Weapon Attack*/
 	/*************************************************************************/
 	UFUNCTION(BlueprintCallable)
-	virtual void MeleeAttack() override;
+	void MeleeAttack();
 
-	UFUNCTION(Server, Reliable)
-	void ServerTryMeleeAttack();
+	//UFUNCTION(Server, Reliable)
+	//void ServerTryMeleeAttack();
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayMeleeAttackMontage(int32 MeleeAttackIndex);
+	//UFUNCTION(NetMulticast, Reliable)
+	//void MulticastPlayMeleeAttackMontage(int32 MeleeAttackIndex);
 
-	virtual void MeleeAttackCanCauseDamage(bool Value) override;
+	/*virtual void MeleeAttackCanCauseDamage(bool Value) override;*/
 
-	virtual void MeleeAttackFinished() override;
+	/*virtual void MeleeAttackFinished() override;*/
 
-	bool TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState);
+	/*bool TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState);*/
 
+	
+	FTransform GetMagicLaunchTransform();
 
 	/*************************************************************************/
 	/* Melee Weapon Block*/
 	/*************************************************************************/
 
 	UFUNCTION()
-	virtual void MeleeBlockStart() override;
+	void MeleeStartBlock();
 
 	UFUNCTION()
-	virtual void MeleeBlockStop() override;
+	void MeleeStopBlock();
 
-	UFUNCTION(Server, Reliable)
-	void ServerTrySetWeaponBlocking(bool IsBlocking);
+	//UFUNCTION(Server, Reliable)
+	//void ServerTrySetWeaponBlocking(bool IsBlocking);
 
 	UFUNCTION(BlueprintPure)
-	virtual bool IsBlocking() override;
+	bool IsBlocking();
 
 	/*************************************************************************/
 	/* Weapon Magic*/
@@ -313,54 +317,54 @@ public:
 	UFUNCTION()
 	void StartUseWeaponMagic();
 
-	/**
-	 * [Server] Start player using weapon magic on server, will start animations on server used for MagicUseState progression
-	 */
-	UFUNCTION(Server, Reliable)
-	void ServerStartUseWeaponMagic();
+	///**
+	// * [Server] Start player using weapon magic on server, will start animations on server used for MagicUseState progression
+	// */
+	//UFUNCTION(Server, Reliable)
+	//void ServerStartUseWeaponMagic();
 
-	/**
-	 * [Server + Client] Play animations to start using weapon magic, animations used for MagicUseState progression will not be played
-	 * as they are all played from ServerStartWeaponMagicProjectile
-	 */
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayStarUsetWeaponMagic();
+	///**
+	// * [Server + Client] Play animations to start using weapon magic, animations used for MagicUseState progression will not be played
+	// * as they are all played from ServerStartWeaponMagicProjectile
+	// */
+	//UFUNCTION(NetMulticast, Reliable)
+	//void MulticastPlayStarUsetWeaponMagic();
 
 	/** [Server + Client] Player input to finish using weapon magic  */
 	UFUNCTION()
 	void FinishUseWeaponMagic();
 
-	/**
-	 * [Server] Finish player using weapon magic on server, will start animation on server used to for MagicUseState progression
-	 */
-	UFUNCTION(Server, Reliable)
-	void ServerFinishUseWeaponMagic();
+	///**
+	// * [Server] Finish player using weapon magic on server, will start animation on server used to for MagicUseState progression
+	// */
+	//UFUNCTION(Server, Reliable)
+	//void ServerFinishUseWeaponMagic();
 
-	/**
-	 * [Server + Client] Play animations to finish using weapon magic, animations used for MagicUseState progression will not be played
-	 * as they are all played from ServerFinishUseWeaponMagic
-	 */
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayFinishUseWeaponMagic();
+	///**
+	// * [Server + Client] Play animations to finish using weapon magic, animations used for MagicUseState progression will not be played
+	// * as they are all played from ServerFinishUseWeaponMagic
+	// */
+	//UFUNCTION(NetMulticast, Reliable)
+	//void MulticastPlayFinishUseWeaponMagic();
 
-	/**
-	 * [Server] Release the current weapon magic. Calls current melee weapon to react to magic charge released
-	 */
-	UFUNCTION()
-	void ReleaseWeaponMagic();
+	///**
+	// * [Server] Release the current weapon magic. Calls current melee weapon to react to magic charge released
+	// */
+	//UFUNCTION()
+	//void ReleaseWeaponMagic();
 
 	/*************************************************************************/
 	/* ISMeleeWeaponWielder overloads*/
 	/*************************************************************************/
 
-	UFUNCTION(BlueprintCallable)
-	virtual void ProjectileMagicAttack() override;
+	//UFUNCTION(BlueprintCallable)
+	//virtual void ProjectileMagicAttack() override;
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayProjectileMagicAttackMontage(int32 AttackIndex);
+	//UFUNCTION(NetMulticast, Reliable)
+	//void MulticastPlayProjectileMagicAttackMontage(int32 AttackIndex);
 
-	UFUNCTION()
-	virtual void SpawnMagicAttackProjectile() override;
+	//UFUNCTION()
+	//virtual void SpawnMagicAttackProjectile() override;
 
 
 
@@ -369,14 +373,14 @@ public:
 	/* ISMeleeWeaponWielder overloads*/
 	/*************************************************************************/
 	
-	/** [Server] Called when the current equipped weapon changes its magic charge state */
-	virtual void WeaponMagicChargeChange(bool Value) override;
+	///** [Server] Called when the current equipped weapon changes its magic charge state */
+	//virtual void WeaponMagicChargeChange(bool Value) override;
 
-	UFUNCTION()
-	bool TrySetMagicUseState(EMagicUseState NewMagicUseState);
+	//UFUNCTION()
+	//bool TrySetMagicUseState(EMagicUseState NewMagicUseState);
 
-	UFUNCTION(BlueprintCallable)
-	FORCEINLINE EMagicUseState GetMagicUseState() const { return MagicUseState; }
+	//UFUNCTION(BlueprintCallable)
+	//FORCEINLINE EMagicUseState GetMagicUseState() const { return MagicUseState; }
 
 
 	/*************************************************************************/
@@ -389,11 +393,21 @@ public:
 
 	virtual TWeakObjectPtr<USceneComponent> GetProjectileHomingTarget() override;
 
+	/** [Server + Client] Play anim montage for local mesh */
+	virtual float PlayAnimMontage(class UAnimMontage* AnimMontage, float InPlayRate = 1.f, FName StartSectionName = NAME_None) override;
+
+	float PlayFirstPersonMontageOnServer(class UAnimMontage* AnimMontage);
+
+	UFUNCTION(BlueprintCallable)
+	bool IsMeleeWeaponMagicChargeReady();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	UAnimInstance* GetLocalAnimInstance();
 
+	USkeletalMeshComponent* GetLocalMesh();
 
 	/*************************************************************************/
 	/* Inventory */
@@ -403,14 +417,14 @@ protected:
 	void SpawnDefaultInventory();
 
 	/** [Server] Add weapon to MeleeWeaponInventory */
-	void AddWeapon(ASMeleeWeaponBase* Weapon);
+	void AddWeapon(ASWeaponBase* Weapon);
 
 	/** [Server] Equip weapon. Weapon must be in MeleeWeaponInventory */
-	void EquipWeapon(ASMeleeWeaponBase* Weapon);
+	void EquipWeapon(ASWeaponBase* Weapon);
 
 	/** Equip Weapon */
 	UFUNCTION(Server, Reliable)
-	void ServerEquipWeapon(ASMeleeWeaponBase* Weapon);
+	void ServerEquipWeapon(ASWeaponBase* Weapon);
 
 	/**
 	 * [Server + Client] Update the current weapon
@@ -419,11 +433,11 @@ protected:
 	 * @param PreviousWeapon	What will become last weapon equipped after NewWeapon is equipped
 	 *							usually will be set to CurrentWeapon
 	 */
-	void SetCurrentWeapon(ASMeleeWeaponBase* NewWeapon, ASMeleeWeaponBase* PreviousWeapon);
+	void SetCurrentWeapon(ASWeaponBase* NewWeapon, ASWeaponBase* PreviousWeapon);
 
 	/** current weapon rep handler */
 	UFUNCTION()
-	void OnRep_CurrentMeleeWeapon(class ASMeleeWeaponBase* LastWeapon);
+	void OnRep_CurrentWeapon(class ASWeaponBase* LastWeapon);
 
 
 private:	
@@ -434,11 +448,11 @@ private:
 	/** spawn inventory, setup initial variables */
 	virtual void PostInitializeComponents() override;
 
-	/*************************************************************************/
-	/* On Rep notifys*/
-	/*************************************************************************/
-	UFUNCTION()
-	void OnRep_CurrentWeaponIsMagicCharged();
+	///*************************************************************************/
+	///* On Rep notifys*/
+	///*************************************************************************/
+	//UFUNCTION()
+	//void OnRep_CurrentWeaponIsMagicCharged();
 
 	/*************************************************************************/
 	/* Helper Functions */
@@ -461,6 +475,7 @@ private:
 
 
 	void SetProjectileHomingTargetLocation(bool IsCrouching);
+
 
 
 };

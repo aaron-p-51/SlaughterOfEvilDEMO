@@ -20,6 +20,9 @@ class SLAUGHTEROFEVILDEMO_API USMagicChargeComponent : public UActorComponent
  */
  private:
 
+	UPROPERTY(EditDefaultsOnly)
+	uint32 bCanEverMagicCharge : 1;
+
 	/** Can Charge be applied */
 	UPROPERTY(EditDefaultsOnly)
 	uint32 bCanMagicCharge : 1;
@@ -44,6 +47,8 @@ class SLAUGHTEROFEVILDEMO_API USMagicChargeComponent : public UActorComponent
 public:	
 	// Sets default values for this component's properties
 	USMagicChargeComponent();
+
+	FORCEINLINE bool CanEverMagicCharge() const { return bCanEverMagicCharge; }
 
 	/**
 	 * [Server] Try and set the magic charge state. If state is changed OnMagicChargeChange will brodcast change

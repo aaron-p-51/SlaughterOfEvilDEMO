@@ -12,12 +12,13 @@ void USAnimNotifyReleaseMagicCharge::Notify(USkeletalMeshComponent* MeshComp, UA
 
 	if (!MeshComp) return;
 
-	if (MeshComp->GetOwner())
+	ASCharacterBase* MeshOwner = Cast<ASCharacterBase>(MeshComp->GetOwner());
+	if (MeshOwner)
 	{
-		auto CharacterBase = Cast<ASCharacterBase>(MeshComp->GetOwner());
-		if (CharacterBase)
+		ASMeleeWeapon* Weapon = MeshOwner->GetCurrentMeleeWeapon();
+		if (Weapon)
 		{
-			CharacterBase->TrySetMagicUseState(EMagicUseState::EMUS_Finish);
+			Weapon->OnMagicChargeRelease();
 		}
 	}
 }

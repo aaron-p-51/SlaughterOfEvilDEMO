@@ -20,6 +20,8 @@ ASPlayerBase::ASPlayerBase()
 	if (AIGroupControllerTargetActorField)
 	{
 		AIGroupControllerTargetActorField->SetupAttachment(GetRootComponent());
+		AIGroupControllerTargetActorField->SetGenerateOverlapEvents(true);
+		AIGroupControllerTargetActorField->SetCollisionProfileName(TEXT("AIGroupField"));
 		AIGroupControllerTargetActorField->ComponentTags.Add(FName("AIGroupTargetActorField"));
 	}
 
@@ -27,6 +29,8 @@ ASPlayerBase::ASPlayerBase()
 	if (AIGroupControllerTargetNearField)
 	{
 		AIGroupControllerTargetNearField->SetupAttachment(GetRootComponent());
+		AIGroupControllerTargetNearField->SetGenerateOverlapEvents(true);
+		AIGroupControllerTargetNearField->SetCollisionProfileName(TEXT("AIGroupField"));
 		AIGroupControllerTargetNearField->ComponentTags.Add(FName("AIGroupTargetNearField"));
 	}
 
@@ -34,6 +38,8 @@ ASPlayerBase::ASPlayerBase()
 	if (AIGroupControllerTargetFarField)
 	{
 		AIGroupControllerTargetFarField->SetupAttachment(GetRootComponent());
+		AIGroupControllerTargetFarField->SetGenerateOverlapEvents(true);
+		AIGroupControllerTargetFarField->SetCollisionProfileName(TEXT("AIGroupField"));
 		AIGroupControllerTargetFarField->ComponentTags.Add(FName("AIGroupTargetFarField"));
 	}
 

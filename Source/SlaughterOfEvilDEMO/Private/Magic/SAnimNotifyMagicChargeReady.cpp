@@ -17,7 +17,7 @@ void USAnimNotifyMagicChargeReady::Notify(USkeletalMeshComponent* MeshComp, UAni
 		auto CharacterBase = Cast<ASCharacterBase>(MeshComp->GetOwner());
 		if (CharacterBase)
 		{
-			CharacterBase->TrySetMagicUseState(EMagicUseState::EMUS_Ready);
+			//CharacterBase->TrySetMagicUseState(EMagicUseState::EMUS_Ready);
 		}
 	}
 }
