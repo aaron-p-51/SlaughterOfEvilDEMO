@@ -21,11 +21,14 @@ class SLAUGHTEROFEVILDEMO_API ASEnemyBase : public ASCharacterBase
  * Members
  */
 
+
 protected:
 
+	UPROPERTY(EditDefaultsOnly)
+	USphereComponent* AIGroupSphereComp;
 
-	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	//UAIGroupControlComponent* AIGroupControlComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UAIGroupControlComponent* AIGroupControlComp;
 
 
  /**
@@ -44,11 +47,13 @@ protected:
 
 public:
 
+
+
 	ASEnemyBase();
 
 	/*virtual void MeleeAttack() override;*/
 
-	int32 FindMeleeAttackInRangeOfGroupTarget();
+	void UseMeleeAttackInRangeOfGroupTarget();
 
 	void ProjectileMagicAttack();
 

@@ -162,6 +162,19 @@ void ASMeleeWeapon::ServerUse_Implementation()
 }
 
 
+void ASMeleeWeapon::UseSpecificMeleeAttack(int32 MeleeWeaponDataAttacksIndex)
+{
+	if (GetLocalRole() != ENetRole::ROLE_Authority) return;
+
+	if (MeleeWeaponData.Attacks.Num() > MeleeWeaponDataAttacksIndex)
+	{
+		MeleeAttackCount = MeleeWeaponDataAttacksIndex;
+		TriggerOwnerPlayAttackAnimation(MeleeWeaponData.Attacks[MeleeAttackCount]);
+		TrySetUseState(EMeleeWeaponUseState::EMWUS_Attacking);
+	}
+}
+
+
 void ASMeleeWeapon::IncrementMeleeAttackCount()
 {
 	if (MeleeWeaponData.Attacks.Num() > 0)
@@ -471,7 +484,7 @@ void ASMeleeWeapon::TryApplyDamage()
 
 		for (auto& Actor : OverlapActors)
 		{
-			// Apply Damage
+			UGameplayStatics::ApplyDamage(Actor, 1.f, MyPawn->GetController(), this, MeleeWeaponData.DamageTypeClass);
 		}
 	}
 }

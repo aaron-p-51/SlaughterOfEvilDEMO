@@ -25,6 +25,12 @@ struct FUseWeaponAnims
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* ThirdPerson;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Animation | AI")
+	float MinDistanceToUse;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation | AI")
+	float MaxDistanceToUse;
+
 };
 
 

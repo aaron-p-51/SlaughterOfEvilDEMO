@@ -13,9 +13,11 @@
 
 
 
+
 ASPlayerBase::ASPlayerBase()
 {
 	
+
 	AIGroupControllerTargetActorField = CreateDefaultSubobject<USphereComponent>(TEXT("AIGroupControllerTargetActorField"));
 	if (AIGroupControllerTargetActorField)
 	{

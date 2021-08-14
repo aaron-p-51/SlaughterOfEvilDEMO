@@ -26,12 +26,17 @@ AAIGroupController::AAIGroupController()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	GroupTimerPeriod = 1.f;
+	ManageActorsFieldAssignmentTimerPeriod = 1.f;
+	ManageActorsStayInFieldTimerPeriod = 4.f;
+	TickAIControlledGroupsPeriod = 3.f;
+
+
 	NearFieldRadius = 600.f;
 	FarFieldRadius = 1000.f;
 
 	NearFieldMaxActorCount = 2;
 	FarFieldMaxActorCount = 5;
+	
 
 }
 
@@ -60,10 +65,10 @@ void AAIGroupController::BeginPlay()
 	HalfFarFieldAttackFOV = FarFieldAttackFOV / 2.f;
 	HalfFarFieldMaxFOV = FarFieldMaxFOV / 2.f;
 
-	if (GroupTimerPeriod > 0.f)
-	{
-		GetWorld()->GetTimerManager().SetTimer(GroupTickTimerHandle, this, &AAIGroupController::OnGroupTimerTick, GroupTimerPeriod, true);
-	}
+
+	GetWorld()->GetTimerManager().SetTimer(ManageActorsFieldsAssignmentsTimerHandle, this, &AAIGroupController::ManageActorsFieldAssignmentTimerTick, ManageActorsFieldAssignmentTimerPeriod, true);
+	//GetWorld()->GetTimerManager().SetTimer(ManageActorsStayInFieldTimerHandle, this, &AAIGroupController::ManageActorsStayInFieldTimerTick, ManageActorsStayInFieldTimerPeriod, false);
+	GetWorld()->GetTimerManager().SetTimer(TickAIControlledGroupsTimerHandle, this, &AAIGroupController::TickAIControlledGroups, TickAIControlledGroupsPeriod, false);
 }
 
 
@@ -82,9 +87,8 @@ void AAIGroupController::Tick(float DeltaTime)
 }
 
 
-void AAIGroupController::OnGroupTimerTick()
+void AAIGroupController::ManageActorsFieldAssignmentTimerTick()
 {
-
 	for (auto AIControlledGroupsIt = AIControlledGroups.CreateConstIterator(); AIControlledGroupsIt; ++AIControlledGroupsIt)
 	{
 		AActor* GroupTarget = AIControlledGroupsIt->Key;
@@ -111,15 +115,24 @@ void AAIGroupController::OnGroupTimerTick()
 
 			// TODO: Remove GroupTarget if assigned to EGroupField::None
 		}
-
-		for(auto& GroupTargetActor : AIControlledGroupsIt->Value.GroupActors)
-		{
-			SetDestinationInField(GroupTarget, GroupTargetActor);
-		}
 	}
 
+	BP_ManageActorsFieldAssignmentTimerTick();
+}
 
-	BP_OnGroupTimerTick();
+
+
+
+void AAIGroupController::ManageActorsStayInFieldTimerTick()
+{
+
+}
+
+void AAIGroupController::TickAIControlledGroups()
+{
+	BP_TickAIControlledGroups();
+	GetWorld()->GetTimerManager().SetTimer(TickAIControlledGroupsTimerHandle, this, &AAIGroupController::TickAIControlledGroups, TickAIControlledGroupsPeriod, false);
+	
 }
 
 
@@ -240,7 +253,7 @@ void AAIGroupController::GroupTargetFieldEntered(AActor* GroupTarget, AActor* AI
 	FString EnteredFieldNameString = EnumToString(TEXT("EGroupField"), static_cast<uint8>(EnteredField));
 	FString PreviousFieldNameString = EnumToString(TEXT("EGroupField"), static_cast<uint8>(PreviousField));
 
-	UE_LOG(LogTemp, Warning, TEXT("AAIGroupController::GroupTargetFieldEntered - Entered = (%s), Previous = (%s)"), *EnteredFieldNameString, *PreviousFieldNameString);
+	//UE_LOG(LogTemp, Warning, TEXT("AAIGroupController::GroupTargetFieldEntered - Entered = (%s), Previous = (%s)"), *EnteredFieldNameString, *PreviousFieldNameString);
 
 	if (EnteredField == EGroupField::EGF_Near || EnteredField == EGroupField::EGF_Far)
 	{
@@ -407,6 +420,7 @@ AActor* AAIGroupController::GetClosestGroupControlledActorInField(AActor* GroupT
 	return MinDistanceActor;
 }
 
+
 void AAIGroupController::GetAllGroupControlledActorsCurrentlyInField(AActor* GroupTarget, EGroupField Field, TArray<AActor*>& ActorsInField)
 {
 	auto ControlGroup = AIControlledGroups.Find(GroupTarget);
@@ -421,6 +435,7 @@ void AAIGroupController::GetAllGroupControlledActorsCurrentlyInField(AActor* Gro
 		}
 	}
 }
+
 
 bool AAIGroupController::IsAllowedInNearFeild(AActor* AIGroupControlledActor) const
 {
@@ -555,21 +570,7 @@ float AAIGroupController::GetAngleGroupTargetForwardToAIGroupActor(AActor* Group
 float AAIGroupController::GetAngleGroupTargetRightToAIGroupActor(AActor* GroupTarget, AActor* AIGroupControlledActor) const
 {
 	if (!GroupTarget || !AIGroupControlledActor) return NAN;
-
-	float angle = GetAngleGroupTargetRightVectorToTargetLocation(GroupTarget, AIGroupControlledActor->GetActorLocation());
-
-	return angle;
-	/*FVector EnemyToPlayer = Enemy->GetActorLocation() - Player->GetActorLocation();
-	float dx = FVector::DotProduct(EnemyToPlayer, Player->GetActorForwardVector());
-	float dy = FVector::DotProduct(EnemyToPlayer, Player->GetActorRightVector());
-	float angle = FMath::RadiansToDegrees(FMath::Atan2(dx, dy));
-
-	if (angle < 0.f)
-	{
-		angle += 360.f;
-	}
-
-	return angle;*/
+	return GetAngleGroupTargetRightVectorToTargetLocation(GroupTarget, AIGroupControlledActor->GetActorLocation());
 }
 
 
@@ -646,6 +647,7 @@ void AAIGroupController::TryTriggerAttack(AActor* GroupTarget, AActor* AIGroupCo
 	}
 }
 
+
 void AAIGroupController::TryTriggerRangeAttack(AActor* GroupTarget, AActor* AIGroupControlledActor)
 {
 	if (!AIGroupControlledActor) return;
@@ -659,6 +661,7 @@ void AAIGroupController::TryTriggerRangeAttack(AActor* GroupTarget, AActor* AIGr
 		}
 	}
 }
+
 
 void AAIGroupController::AssignGroupField(AActor* AIGroupControlledActor, EGroupField GroupField) const
 {
@@ -723,6 +726,7 @@ void AAIGroupController::GetAllAIGroupControlActorsInField(AActor* GroupTarget, 
 		}
 	}
 }
+
 
 UAIGroupControlComponent* AAIGroupController::GetAIGroupControlComponent(AActor* AIGroupControlledActor) const
 {

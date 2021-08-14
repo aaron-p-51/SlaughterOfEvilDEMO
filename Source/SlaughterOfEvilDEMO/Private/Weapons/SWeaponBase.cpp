@@ -5,6 +5,7 @@
 
 // Engine Includes
 #include "Net/UnrealNetwork.h"
+#include "AIController.h"
 
 // Game Includes
 #include "Components/SMagicChargeComponent.h"
@@ -104,8 +105,10 @@ void ASWeaponBase::AttachMeshToPawn()
 
 	FName AttackSocketName = MyPawn->GetWeaponSocketName();
 
+	auto OwnerAIController = Cast<AAIController>(MyPawn->GetController());
+
 	// If this weapons new owner is locally controlled then attach to first person mesh
-	if (MyPawn->IsLocallyControlled())
+	if (MyPawn->IsLocallyControlled() && !OwnerAIController)
 	{
 		auto MyPawnFirstPerson = MyPawn->GetFirstPersonMesh();
 		if (MyPawnFirstPerson)

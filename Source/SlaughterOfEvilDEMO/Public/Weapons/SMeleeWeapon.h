@@ -44,6 +44,8 @@ struct FMeleeWeaponChargeAnims
 
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	FUseWeaponAnims Finish;
+
+
 };
 
 /**
@@ -195,6 +197,8 @@ public:
 
 	/** [Server + Client] Use (Attack) with this weapon */
 	virtual void Use() override;
+
+	void UseSpecificMeleeAttack(int32 MeleeWeaponDataAttacksIndex);
 	
 	/** [Server + Client] Called from anim notify when attack is finished, prevents from attacking too fast */
 	UFUNCTION()
@@ -366,5 +370,11 @@ protected:
 	UFUNCTION()
 	void DisplayCosmeticVFX();
 
+	/*************************************************************************/
+	/* AI Helpers */
+	/*************************************************************************/
+
+public:
+	FORCEINLINE TArray<FUseWeaponAnims> GetWeaponDataAttackAnims() const {return MeleeWeaponData.Attacks;}
 
 };

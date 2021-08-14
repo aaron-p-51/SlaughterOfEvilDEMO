@@ -12,13 +12,25 @@
 #include "AI/AIGroupControlComponent.h"
 #include "Magic/SMagicProjectileBase.h"
 #include "Weapons/SMeleeWeaponBase.h"
+#include "Components/SphereComponent.h"
 
 
 const static int32 NO_VALID_ATTACK_IN_RANGE = -1;
 
+
+
 ASEnemyBase::ASEnemyBase()
 {
-	//AIGroupControlComp = CreateDefaultSubobject<UAIGroupControlComponent>(TEXT("AIGroupControlComp"));
+	AIGroupControlComp = CreateDefaultSubobject<UAIGroupControlComponent>(TEXT("AIGroupControlComp"));
+	AIGroupSphereComp = CreateDefaultSubobject<USphereComponent>(TEXT("AIGroupSphereComp"));
+	if (AIGroupSphereComp)
+	{
+		AIGroupSphereComp->SetupAttachment(GetRootComponent());
+		AIGroupSphereComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		AIGroupSphereComp->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		AIGroupSphereComp->SetSphereRadius(150.f);
+	
+	}
 }
 
 
@@ -26,11 +38,11 @@ void ASEnemyBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//if (GetLocalRole() == ENetRole::ROLE_Authority && AIGroupControlComp)
-	//{
-	//	AIGroupControlComp->OnTriggerAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerMeleeAttack);
-	//	AIGroupControlComp->OnTriggerRangeAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerRangeAttack);
-	//}
+	if (GetLocalRole() == ENetRole::ROLE_Authority && AIGroupControlComp)
+	{
+		AIGroupControlComp->OnTriggerAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerMeleeAttack);
+		AIGroupControlComp->OnTriggerRangeAttack.AddDynamic(this, &ASEnemyBase::AIGroupControllerTriggerRangeAttack);
+	}
 
 }
 
@@ -38,8 +50,34 @@ void ASEnemyBase::BeginPlay()
 void ASEnemyBase::AIGroupControllerTriggerMeleeAttack(AActor* GroupTarget)
 {
 	UE_LOG(LogTemp, Warning, TEXT("AIGroupControllerTriggerMeleeAttack"));
-	MeleeAttack();
+	
+	UseMeleeAttackInRangeOfGroupTarget();
 }
+
+
+void ASEnemyBase::UseMeleeAttackInRangeOfGroupTarget()
+{
+	ASMeleeWeapon* MeleeWeapon = GetCurrentMeleeWeapon();
+	if (MeleeWeapon)
+	{
+		float DistanceToTarget = FVector::Distance(GetActorLocation(), AIGroupControlComp->GroupControllerData.TargetActor->GetActorLocation());
+		TArray<FUseWeaponAnims> MeleeWeaponAttacks = MeleeWeapon->GetWeaponDataAttackAnims();
+		TArray<int32> ValidMeleeWeaponAttackIndexs;
+		for (int32 i = 0; i < MeleeWeaponAttacks.Num(); ++i)
+		{
+			if (DistanceToTarget > MeleeWeaponAttacks[i].MinDistanceToUse && DistanceToTarget < MeleeWeaponAttacks[i].MaxDistanceToUse)
+			{
+				ValidMeleeWeaponAttackIndexs.Add(i);
+			}
+		}
+
+		if (ValidMeleeWeaponAttackIndexs.Num() > 0)
+		{
+			MeleeWeapon->UseSpecificMeleeAttack(FMath::RandRange(0, ValidMeleeWeaponAttackIndexs.Num() - 1));
+		}
+	}
+}
+
 
 void ASEnemyBase::AIGroupControllerTriggerRangeAttack(AActor* GroupTarget)
 {
@@ -66,36 +104,7 @@ void ASEnemyBase::AIGroupControllerTriggerRangeAttack(AActor* GroupTarget)
 //	}
 //}
 
-int32 ASEnemyBase::FindMeleeAttackInRangeOfGroupTarget()
-{
-	/*if (!AIGroupControlComp) return NO_VALID_ATTACK_IN_RANGE;
 
-	float DistanceToTarget = FVector::Distance(AIGroupControlComp->GroupControllerData.TargetActor->GetActorLocation(), GetActorLocation());
-	UE_LOG(LogTemp, Warning, TEXT("Distance To target is: %f"), DistanceToTarget);
-
-	TArray<int32> PossibleAttackIndex;
-
-	for (int32 AttackIndex= 0; AttackIndex < MeleeWeaponData[CurrentWeaponIndex].MeleeAttacks.Num(); ++AttackIndex)
-	{
-		if (DistanceToTarget >= MeleeWeaponData[CurrentWeaponIndex].MeleeAttacks[AttackIndex].MinDistance && 
-			DistanceToTarget <= MeleeWeaponData[CurrentWeaponIndex].MeleeAttacks[AttackIndex].MaxDistance)
-		{
-			PossibleAttackIndex.Add(AttackIndex);
-		}
-	}
-
-	if (PossibleAttackIndex.Num() < 1)
-	{
-		return NO_VALID_ATTACK_IN_RANGE;
-	}
-	else
-	{ 
-		int32 RandomIndex = FMath::RandRange(0, PossibleAttackIndex.Num() - 1);
-		return PossibleAttackIndex[RandomIndex];
-	}*/
-
-	return NO_VALID_ATTACK_IN_RANGE;
-}
 
 
 void ASEnemyBase::ProjectileMagicAttack()

@@ -10,7 +10,7 @@ class USphereComponent;
 class UAIGroupTargetActorComponent;
 
 
-
+class USAIGroupCoordinatorTarget;
 
 
 /**
@@ -20,6 +20,11 @@ UCLASS()
 class SLAUGHTEROFEVILDEMO_API ASPlayerBase : public ASCharacterBase
 {
 	GENERATED_BODY()
+
+
+public:
+
+
 
 protected:
 
