@@ -14,9 +14,30 @@ void UAIGroupControlComponent::TriggerRangeAttack() const
 	OnTriggerRangeAttack.Broadcast(GroupControllerData.TargetActor);
 }
 
+
 void UAIGroupControlComponent::TriggerAttack() const
 {
 	OnTriggerAttack.Broadcast(GroupControllerData.TargetActor);
 }
+
+
+void UAIGroupControlComponent::TriggerAttackUpdate()
+{
+	if (GetOwnerRole() == ENetRole::ROLE_Authority)
+	{
+		GroupControllerData.LastAttackTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
+
+void UAIGroupControlComponent::TriggerRangeAttackUpdate()
+{
+	if (GetOwnerRole() == ENetRole::ROLE_Authority)
+	{
+		GroupControllerData.LastRangeAttackTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
+
 
 

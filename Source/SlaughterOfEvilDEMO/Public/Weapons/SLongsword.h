@@ -3,21 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Weapons/SMeleeWeaponBase.h"
+#include "Weapons/SMeleeWeapon.h"
 #include "SLongsword.generated.h"
-
-class UMaterialInstanceDynamic;
-class USMagicChargeComponent;
-class ASMagicProjectileBase;
 
 /**
  * 
  */
 UCLASS()
-class SLAUGHTEROFEVILDEMO_API ASLongsword : public ASMeleeWeaponBase
+class SLAUGHTEROFEVILDEMO_API ASLongsword : public ASMeleeWeapon
 {
 	GENERATED_BODY()
-	
 
 /**
  * Members
@@ -29,16 +24,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterialInstanceDynamic* MeshDynamicMaterial;
 
-
 /**
  * Methods
  */
+public:
 
- public:
-
-	 ASLongsword();
-
-
+	ASLongsword();
 
 	/*************************************************************************/
 	/* Change Magic State */
@@ -48,7 +39,7 @@ protected:
 
 	virtual void RemoveMagicChargeEffects() override;
 
-	virtual void ReleaseMagicCharge(FTransform& ReleaseTransform) override;
+	virtual void ReleaseMagicCharge(FTransform ReleaseTransform) override;
 
 
 protected:
@@ -56,7 +47,5 @@ protected:
 	/** Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 
-
-
-
+	
 };

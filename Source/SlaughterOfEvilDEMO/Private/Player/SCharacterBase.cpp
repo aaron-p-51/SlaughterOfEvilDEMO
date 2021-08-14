@@ -1,20 +1,25 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ //Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Player/SCharacterBase.h"
 
 // Engine Includes
+#include "AIController.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "DrawDebugHelpers.h"
+
 
 
 // Game Includes
-#include "Weapons/SMeleeWeaponBase.h"
+#include "Weapons/SWeaponBase.h"
+#include "Weapons/SMeleeWeapon.h"
+#include "Components/SHealthComponent.h"
 
 const static float MONTAGE_PLAY_FAIL = 0.f;
-const static int32 NO_WEAPON_SET = -1;
+
 
 // Sets default values
 ASCharacterBase::ASCharacterBase()
@@ -44,15 +49,30 @@ ASCharacterBase::ASCharacterBase()
 		ThirdPersonMesh->SetOwnerNoSee(true);
 	}
 
-	
-	
-	CurrentWeaponIndex = NO_WEAPON_SET;
-	MagicUseState = EMagicUseState::EMUS_Idle;
-	MeleeAttackState = EMeleeAttackState::EMAS_Idle;
+	ProjectileHomingTarget = CreateDefaultSubobject<USceneComponent>(TEXT("ProjectileHomingTarget"));
+	if (ProjectileHomingTarget)
+	{
+		ProjectileHomingTarget->SetupAttachment(GetRootComponent());
+	}
+
+	HealthComponent = CreateDefaultSubobject<USHealthComponent>(TEXT("HealthComp"));
+
+
 	
 	bReplicates = true;
 	SetReplicateMovement(true);
 
+}
+
+
+void ASCharacterBase::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		GetWorldTimerManager().SetTimerForNextTick(this, &ASCharacterBase::SpawnDefaultInventory);
+	}
 }
 
 
@@ -61,7 +81,7 @@ void ASCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SpawnStartingWeapons();
+	SetProjectileHomingTargetLocation(false);
 	
 	// Cache the Animation Instance for first person mesh. DO NOT place this in
 	// constructor, will not be initialized properly
@@ -73,62 +93,29 @@ void ASCharacterBase::BeginPlay()
 	{
 		ThirdPersonAnimInstance = GetMesh()->GetAnimInstance();
 	}
+
+	if (HealthComponent)
+	{
+		HealthComponent->OnHealthChange.AddDynamic(this, &ASCharacterBase::HealthCompOnHealthChange);
+	}
 }
 
 
-void ASCharacterBase::SpawnStartingWeapons()
+UAnimInstance* ASCharacterBase::GetLocalAnimInstance()
 {
+	return (IsFirstPerson()) ? FirstPersonMesh->GetAnimInstance() : GetMesh()->GetAnimInstance();
+}
 
-	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
-	{
-		// TPP Weapon
-		FTransform WeaponSpawnTransformTPP(GetActorTransform());
-		MeleeWeaponData[i].TPPMeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformTPP));
-		if (MeleeWeaponData[i].TPPMeleeWeapon && GetMesh())
-		{
-			MeleeWeaponData[i].TPPMeleeWeapon->SetOwner(this);
-			MeleeWeaponData[i].TPPMeleeWeapon->SetInstigator(this);
-			MeleeWeaponData[i].TPPMeleeWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
 
-			// Hide weapon, TPP weapon only shown for simulated proxies
-			if (IsLocallyControlled())
-			{
-				MeleeWeaponData[i].TPPMeleeWeapon->SetWeaponVisibility(false);
-			}
-			UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].TPPMeleeWeapon, WeaponSpawnTransformTPP);
-		}
+USkeletalMeshComponent* ASCharacterBase::GetLocalMesh()
+{
+	return (IsFirstPerson()) ? FirstPersonMesh : GetMesh();
+}
 
-		// TPP Weapon
-		FTransform WeaponSpawnTransformFPP(GetActorTransform());
-		MeleeWeaponData[i].FPPMeleeWeapon = Cast<ASMeleeWeaponBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, MeleeWeaponData[i].MeleeWeaponClass, WeaponSpawnTransformFPP));
-		if (MeleeWeaponData[i].FPPMeleeWeapon && FirstPersonMesh)
-		{
-			MeleeWeaponData[i].FPPMeleeWeapon->SetOwner(this);
-			MeleeWeaponData[i].FPPMeleeWeapon->SetInstigator(this);
-			MeleeWeaponData[i].FPPMeleeWeapon->AttachToComponent(FirstPersonMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, MeleeWeaponData[i].MeleeWeaponSocketName);
-			
-			// Hide weapon, FPP weapon only shown for autonomous proxies and actors with authority
-			if (!IsLocallyControlled())
-			{
-				MeleeWeaponData[i].FPPMeleeWeapon->SetWeaponVisibility(false);
-			}
-			UGameplayStatics::FinishSpawningActor(MeleeWeaponData[i].FPPMeleeWeapon, WeaponSpawnTransformFPP);
-		}
-	}
 
-	// Set the current weapon index based on which weapon has bIsStartingWeapon set.
-	for (int32 i = 0; i < MeleeWeaponData.Num(); ++i)
-	{
-		if (MeleeWeaponData[i].bIsStartingWeapon && CurrentWeaponIndex == NO_WEAPON_SET)
-		{
-			CurrentWeaponIndex = i;
-		}
-		else if (MeleeWeaponData[i].bIsStartingWeapon && CurrentWeaponIndex > NO_WEAPON_SET)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Multiple starting weapons set for %s. Starting weapon will be set to %s"), *GetName(), *MeleeWeaponData[i].MeleeWeaponClass->GetName());
-		}
-	}
-	
+void ASCharacterBase::OnRep_CurrentWeapon(ASWeaponBase* LastWeapon)
+{
+	SetCurrentWeapon(CurrentWeapon, LastWeapon);
 }
 
 
@@ -137,7 +124,7 @@ void ASCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (IsLocallyControlled() == false && Camera != nullptr)
+	if (IsLocallyControlled() == false && Camera)
 	{
 		FRotator NewRot = Camera->GetRelativeRotation();
 		NewRot.Pitch = RemoteViewPitch * 360.f / 255.f;
@@ -147,10 +134,28 @@ void ASCharacterBase::Tick(float DeltaTime)
 }
 
 
+bool ASCharacterBase::IsFirstPerson() const
+{
+	return Controller && Controller->IsLocalPlayerController();
+}
+
+
+ASMeleeWeapon* ASCharacterBase::GetCurrentMeleeWeapon()
+{
+	if (CurrentWeapon)
+	{
+		return Cast<ASMeleeWeapon>(CurrentWeapon);
+	}
+
+	return nullptr;
+}
+
+
 FRotator ASCharacterBase::GetRemotePitchView() const
 {
 	return Camera ? Camera->GetRelativeRotation() : FRotator::ZeroRotator;
 }
+
 
 // Called to bind functionality to input
 void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -167,13 +172,11 @@ void ASCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &ASCharacterBase::MeleeAttack);
 
-	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::MeleeBlockStart);
-	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::MeleeBlockStop);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Pressed, this, &ASCharacterBase::MeleeStartBlock);
+	PlayerInputComponent->BindAction(TEXT("Block"), EInputEvent::IE_Released, this, &ASCharacterBase::MeleeStopBlock);
 
 	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Pressed, this, &ASCharacterBase::StartUseWeaponMagic);
 	PlayerInputComponent->BindAction(TEXT("WeaponMagic"), EInputEvent::IE_Released, this, &ASCharacterBase::FinishUseWeaponMagic);
-
-
 }
 
 
@@ -194,151 +197,73 @@ void ASCharacterBase::MoveRight(float Value)
 /*************************************************************************/
 void ASCharacterBase::MeleeAttack()
 {
-	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	if (CurrentWeapon)
 	{
-		ServerTryMeleeAttack();
+		CurrentWeapon->Use();
+	}
+}
+
+
+FTransform ASCharacterBase::GetMagicLaunchTransform()
+{
+	if (Camera)
+	{
+		return Camera->GetComponentTransform();
 	}
 	else
 	{
-		ServerTryMeleeAttack_Implementation();
+		return GetActorTransform();
 	}
 }
 
 
-void ASCharacterBase::ServerTryMeleeAttack_Implementation()
-{
-	if (MeleeAttackState == EMeleeAttackState::EMAS_Idle)
-	{
-		TrySetMeleeAttackState(EMeleeAttackState::EMAS_Attacking);
-		MeleeAttackDirection = GetMeleeAttackDirection();
-
-		auto ServerFirstPersonAttackMontage = MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttackDirection);
-		if (*ServerFirstPersonAttackMontage && FirstPersonAnimInstance)
-		{
-			FirstPersonAnimInstance->Montage_Play(*ServerFirstPersonAttackMontage);
-			MulticastPlayMeleeAttackMontage(MeleeAttackDirection);
-		}
-	}
-	
-}
 
 
-// TODO: Replace with deterministic function, get rid of randomness
-EMeleeAttackDirection ASCharacterBase::GetMeleeAttackDirection() const
-{
-	int32 RandomSwingIndex = UKismetMathLibrary::RandomIntegerInRange(0, 1);
-	
-	switch (MeleeAttackDirection)
-	{
-		case EMeleeAttackDirection::EMAD_Left:
-		case EMeleeAttackDirection::EMAD_LeftDown:
-			
-			if (RandomSwingIndex == 0)
-			{
-				return EMeleeAttackDirection::EMAD_Right;
-			}
-			else
-			{
-				return EMeleeAttackDirection::EMAD_RightDown;
-			}
-		break;
 
-		case EMeleeAttackDirection::EMAD_Right:
-		case EMeleeAttackDirection::EMAD_RightDown:
-
-			if (RandomSwingIndex == 0)
-			{
-				return EMeleeAttackDirection::EMAD_Left;
-			}
-			else
-			{
-				return EMeleeAttackDirection::EMAD_LeftDown;
-			}
-		break;
-
-	default:
-		return MeleeAttackDirection;
-		break;
-	}
-}
-
-
-void ASCharacterBase::MulticastPlayMeleeAttackMontage_Implementation(EMeleeAttackDirection MeleeAttack)
-{
-	PlayMontagePairTPPandFPP(*(MeleeWeaponData[CurrentWeaponIndex].FPPAttackMontages.Find(MeleeAttack)),
-		*(MeleeWeaponData[CurrentWeaponIndex].TPPAttackMontages.Find(MeleeAttack)));
-}
-
-
-bool ASCharacterBase::TrySetMeleeAttackState(EMeleeAttackState NewMeleeAttackState)
-{
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{
-		MeleeAttackState = NewMeleeAttackState;
-
-		if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
-		{
-			if (MeleeAttackState == EMeleeAttackState::EMAS_CauseDamage)
-			{
-				MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(true);
-			}
-			else
-			{
-				MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetCanCauseDamage(false);
-			}
-		}
-	}
-
-	return true;
-}
-
-#pragma region MELEE_WEAPON_BLOCK
 /*************************************************************************/
 /* Melee Weapon Block */
 /*************************************************************************/
 
-void ASCharacterBase::MeleeBlockStart()
+void ASCharacterBase::MeleeStartBlock()
 {
-	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	if (CurrentWeapon)
 	{
-		ServerTrySetWeaponBlocking(true);
-	}
-	else
-	{
-		ServerTrySetWeaponBlocking_Implementation(true);
+		auto MeleeWeapon = Cast<ASMeleeWeapon>(CurrentWeapon);
+		if (MeleeWeapon)
+		{
+			MeleeWeapon->StartBlock();
+		}
 	}
 }
 
 
-void ASCharacterBase::MeleeBlockStop()
+void ASCharacterBase::MeleeStopBlock()
 {
-	if (GetLocalRole() < ENetRole::ROLE_Authority)
+	if (CurrentWeapon)
 	{
-		ServerTrySetWeaponBlocking(false);
-	}
-	else
-	{
-		ServerTrySetWeaponBlocking_Implementation(false);
-	}
-}
-
-
-void ASCharacterBase::ServerTrySetWeaponBlocking_Implementation(bool IsBlocking)
-{
-	bIsBlocking = IsBlocking;
-	if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
-	{
-		MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->SetIsBlocking(IsBlocking);
+		auto MeleeWeapon = Cast<ASMeleeWeapon>(CurrentWeapon);
+		if (MeleeWeapon)
+		{
+			MeleeWeapon->StopBlock();
+		}
 	}
 }
 
 
 bool ASCharacterBase::IsBlocking()
 {
-	return bIsBlocking;
+	if (CurrentWeapon)
+	{
+		auto MeleeWeapon = Cast<ASMeleeWeapon>(CurrentWeapon);
+		if (MeleeWeapon && MeleeWeapon->GetIsBlocking())
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
-#pragma endregion
 
 
 /*************************************************************************/
@@ -347,217 +272,209 @@ bool ASCharacterBase::IsBlocking()
 
 void ASCharacterBase::StartUseWeaponMagic()
 {
-	(GetLocalRole() < ENetRole::ROLE_Authority) ? ServerStartUseWeaponMagic() : ServerStartUseWeaponMagic_Implementation();
-
-}
-
-
-void ASCharacterBase::ServerStartUseWeaponMagic_Implementation()
-{
-	if (IsCurrentMeleeWeaponMagicCharged())
+	if (CurrentWeapon)
 	{
-		// Try and set Magic use state to start using magic
-		TrySetMagicUseState(EMagicUseState::EMUS_Start);
-		
-		if (MagicUseState == EMagicUseState::EMUS_Start && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage)
-		{
-			// FirstFPP anim montage contains notifies to progress through MagicUseState
-			FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
-			MulticastPlayStarUsetWeaponMagic();
-		}
-	}	
-}
-
-
-void ASCharacterBase::MulticastPlayStarUsetWeaponMagic_Implementation()
-{
-	// Play corresponding animations for non authority for FPP and TPP 
-	PlayMontagePairTPPandFPP(MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage,
-		MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+		CurrentWeapon->StartUseMagicCharge();
+	}
 }
 
 
 void ASCharacterBase::FinishUseWeaponMagic()
 {
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->FinishUseMagicCharge();
+	}
+
+	//if (GetLocalRole() < ENetRole::ROLE_Authority)
+	//{
+	//	ServerFinishUseWeaponMagic();
+	//}
+	//
+	//// If trying to finish using melee weapon magic before it is ready. Stop FPPMagicStartMontage
+	//if (MagicUseState != EMagicUseState::EMUS_Ready)
+	//{
+	//	//FirstPersonAnimInstance->Montage_Stop(0.35f, MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
+	//	return;
+	//}
+
+	//if (GetLocalRole() == ENetRole::ROLE_Authority && IsCurrentMeleeWeaponMagicCharged() &&
+	//	//MagicUseState == EMagicUseState::EMUS_Ready && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage)
+	//{
+	//	// FirstFPP anim montage contains notifies to progress through MagicUseState
+	//	FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage);
+	//	MulticastPlayFinishUseWeaponMagic();
+	//}
+}
+
+
+void ASCharacterBase::HealthCompOnHealthChange(USHealthComponent* HealthComp, float Health, float HealthDelta, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* HealthChangeCauser)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Damage detected"));
+	UE_LOG(LogTemp, Warning, TEXT("%s has been damaged by %s, health is now at %d"), *GetName(), *HealthChangeCauser->GetName(), Health);
+}
+
+TWeakObjectPtr<USceneComponent> ASCharacterBase::GetProjectileHomingTarget()
+{
+	return TWeakObjectPtr<USceneComponent>(ProjectileHomingTarget);
+}
+
+
+bool ASCharacterBase::IsAIControlled() const
+{
+	return (Cast<APlayerController>(GetController())) ? false : true;
+}
+
+
+void ASCharacterBase::SetProjectileHomingTargetLocation(bool IsCrouching)
+{
+	if (!ProjectileHomingTarget) return;
+
+	float HeightOffset = (IsCrouching) ? CrouchedEyeHeight : BaseEyeHeight;
+	ProjectileHomingTarget->AddLocalOffset(FVector(0.f, 0.f, HeightOffset));
+}
+
+
+float ASCharacterBase::PlayAnimMontage(class UAnimMontage* AnimMontage, float InPlayRate /*= 1.f*/, FName StartSectionName /*= NAME_None*/)
+{
+	auto LocalMesh = GetLocalMesh();
+	float Duration = 0.f;
+	if (LocalMesh && LocalMesh->AnimScriptInstance)
+	{
+		Duration = LocalMesh->AnimScriptInstance->Montage_Play(AnimMontage);
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ASCharacterBase::PlayAnimMontage duration: %f"), Duration);
+
+	return Duration;
+}
+
+
+float ASCharacterBase::PlayFirstPersonMontageOnServer(class UAnimMontage* AnimMontage)
+{
+	float Duration = 0.f;
+	if (GetLocalRole() == ENetRole::ROLE_Authority && FirstPersonMesh && FirstPersonMesh->AnimScriptInstance)
+	{
+		Duration = FirstPersonMesh->AnimScriptInstance->Montage_Play(AnimMontage);
+	}
+
+	return Duration;
+}
+
+
+bool ASCharacterBase::IsMeleeWeaponMagicChargeReady()
+{
+	auto CurrentMeleeWeapon = GetCurrentMeleeWeapon();
+	return CurrentMeleeWeapon && CurrentMeleeWeapon->GetIsWeaponMagicChargeReady();
+}
+
+
+void ASCharacterBase::SpawnDefaultInventory()
+{
+	// Weapons are set to replicate so only spawn on server
 	if (GetLocalRole() < ENetRole::ROLE_Authority)
 	{
-		ServerFinishUseWeaponMagic();
-	}
-	
-	// If trying to finish using melee weapon magic before it is ready. Stop FPPMagicStartMontage
-	if (MagicUseState != EMagicUseState::EMUS_Ready)
-	{
-		FirstPersonAnimInstance->Montage_Stop(0.35f, MeleeWeaponData[CurrentWeaponIndex].FPPMagicStartMontage);
 		return;
 	}
 
-	if (GetLocalRole() == ENetRole::ROLE_Authority && IsCurrentMeleeWeaponMagicCharged() &&
-		MagicUseState == EMagicUseState::EMUS_Ready && FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage)
+	WeaponInventory.Empty();
+	int32 MeleeWeaponClasses = WeaponInventoryClasses.Num();
+	for (int32 i = 0; i < MeleeWeaponClasses; ++i)
 	{
-		// FirstFPP anim montage contains notifies to progress through MagicUseState
-		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage);
-		MulticastPlayFinishUseWeaponMagic();
-	}
-}
-
-
-void ASCharacterBase::ServerFinishUseWeaponMagic_Implementation()
-{
-	FinishUseWeaponMagic();
-}
-
-
-void ASCharacterBase::MulticastPlayFinishUseWeaponMagic_Implementation()
-{	
-	// Play corresponding animations for non authority for FPP and TPP 
-	PlayMontagePairTPPandFPP(MeleeWeaponData[CurrentWeaponIndex].FPPMagicFinishMontage,
-		MeleeWeaponData[CurrentWeaponIndex].TPPMagicFinishMontage);
-}
-
-
-void ASCharacterBase::ReleaseWeaponMagic()
-{
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{
-		// Camera transform is used for release point of magic
-		if (Camera)
+		if (WeaponInventoryClasses[i])
 		{
-			FTransform ProjectileSpawnTransform = Camera->GetComponentTransform();
-			MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->ReleaseMagicCharge(ProjectileSpawnTransform);
-		}
-
-		TrySetMagicUseState(EMagicUseState::EMUS_Idle);
-	}
-}
-
-
-bool ASCharacterBase::TrySetMagicUseState(EMagicUseState NewMagicUseState)
-{
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
-	{
-		if (!MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon) return false;
-		bool FPPWeaponMagicCharged = MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->GetIsWeaponMagicCharged();
-
-		switch (NewMagicUseState)
-		{
-		case EMagicUseState::EMUS_NoCharge:
-			if (!FPPWeaponMagicCharged)
-			{
-				MagicUseState = EMagicUseState::EMUS_NoCharge;
-				return true;
-			}
-			break;
-		case EMagicUseState::EMUS_Idle:
-			if (FPPWeaponMagicCharged)
-			{
-				MagicUseState = EMagicUseState::EMUS_Idle;
-				return true;
-			}
-			break;
-		case EMagicUseState::EMUS_Start:
-			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Idle)
-			{
-				MagicUseState = EMagicUseState::EMUS_Start;
-				return true;
-			}
-			break;
-		case EMagicUseState::EMUS_Ready:
-			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Start)
-			{
-				MagicUseState = EMagicUseState::EMUS_Ready;
-				return true;
-			}
-			break;
-		case EMagicUseState::EMUS_Finish:
-			if (FPPWeaponMagicCharged && MagicUseState == EMagicUseState::EMUS_Ready)
-			{
-				MagicUseState = EMagicUseState::EMUS_Finish;
-				ReleaseWeaponMagic();
-				return true;
-			}
-			break;
-		default:
-			return false;
-			//break;
+			FActorSpawnParameters SpawnParameters;
+			SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			ASWeaponBase* NewWeapon = GetWorld()->SpawnActor<ASWeaponBase>(WeaponInventoryClasses[i], SpawnParameters);
+			AddWeapon(NewWeapon);
 		}
 	}
 
-	return false;
+	if (WeaponInventory.Num() > 0)
+	{
+		EquipWeapon(WeaponInventory[0]);
+	}
 }
 
 
-void ASCharacterBase::WeaponMagicChargeChange(bool Value)
+void ASCharacterBase::AddWeapon(ASWeaponBase* Weapon)
 {
-	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	if (Weapon && GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		// Not magic charged
-		if (!Value)
+		Weapon->OnEnterInventory(this);
+		WeaponInventory.AddUnique(Weapon);
+	}
+}
+
+
+void ASCharacterBase::EquipWeapon(ASWeaponBase* Weapon)
+{
+	if (Weapon)
+	{
+		if (GetLocalRole() < ENetRole::ROLE_Authority)
 		{
-			bool success = TrySetMagicUseState(EMagicUseState::EMUS_NoCharge);
-#if WITH_EDITOR
-			if (!success) UE_LOG(LogTemp, Warning, TEXT("Player: %s, is no longer has magic charged weapon, fail to set MagicUseState to EMUS_NoCharge"), *GetName());
-#endif
+			ServerEquipWeapon(Weapon);
 		}
 		else
 		{
-			bool success = TrySetMagicUseState(EMagicUseState::EMUS_Idle);
-#if WITH_EDITOR
-			if (!success) UE_LOG(LogTemp, Warning, TEXT("Player: %s, has magic charged weapon, failed to set MagicUseState to EMUS_Idle"), *GetName());
-#endif
+			SetCurrentWeapon(Weapon, CurrentWeapon);
 		}
-
-		bCurrentWeaponIsMagicCharged = Value;
-		OnRep_CurrentWeaponIsMagicCharged();
 	}
 }
 
 
-void ASCharacterBase::OnRep_CurrentWeaponIsMagicCharged()
+void ASCharacterBase::SetCurrentWeapon(ASWeaponBase* NewWeapon, ASWeaponBase* PreviousWeapon)
 {
+	ASWeaponBase* LocalPreviousWeapon = nullptr;
 
-	// Play animation to show impact, will only play for FPP
-	if (bCurrentWeaponIsMagicCharged && IsLocallyControlled() &&
-		FirstPersonAnimInstance && MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage)
+	if (PreviousWeapon != nullptr)
 	{
-		FirstPersonAnimInstance->Montage_Play(MeleeWeaponData[CurrentWeaponIndex].BlockImpactMontage);
+		LocalPreviousWeapon = PreviousWeapon;
+	}
+	else if (NewWeapon != PreviousWeapon)
+	{
+		LocalPreviousWeapon = CurrentWeapon;
 	}
 
-	// Apply/Remove magic charge effects on TPPweapon
-	if (MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon)
-	{
-		bCurrentWeaponIsMagicCharged ? MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon->ApplyMagicChargeEffects() :
-			MeleeWeaponData[CurrentWeaponIndex].TPPMeleeWeapon->RemoveMagicChargeEffects();
-	}
+	// TODO unequip previous weapon
 
-	// Apply/Remove magic charge effects on FPPweapon
-	if (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon)
+
+	CurrentWeapon = NewWeapon;
+
+	if (NewWeapon)
 	{
-		bCurrentWeaponIsMagicCharged ? MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->ApplyMagicChargeEffects() :
-			MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->RemoveMagicChargeEffects();
+		NewWeapon->SetOwningPawn(this);
+		NewWeapon->OnEquip();
 	}
 }
 
 
-/*************************************************************************/
-/* Helpers  */
-/*************************************************************************/
-
-bool ASCharacterBase::IsCurrentMeleeWeaponMagicCharged() const
+void ASCharacterBase::Destroyed()
 {
-	return (MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon && MeleeWeaponData[CurrentWeaponIndex].FPPMeleeWeapon->GetIsWeaponMagicCharged());
+	Super::Destroyed();
+
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		return;
+	}
+
+	// remove all weapons from inventory and destroy them
+	for (int32 i = WeaponInventory.Num() - 1; i >= 0; i--)
+	{
+		ASWeaponBase* Weapon = WeaponInventory[i];
+		if (Weapon)
+		{
+			//RemoveWeapon(Weapon);
+			WeaponInventory.RemoveSingle(Weapon);
+		
+		}
+	}
 }
 
 
-void ASCharacterBase::PlayMontagePairTPPandFPP(UAnimMontage* FPPMontage, UAnimMontage* TPPMontage) const
+void ASCharacterBase::ServerEquipWeapon_Implementation(ASWeaponBase* Weapon)
 {
-	if (GetLocalRole() < ENetRole::ROLE_Authority && IsLocallyControlled() && FirstPersonAnimInstance && FPPMontage)
-	{
-		FirstPersonAnimInstance->Montage_Play(FPPMontage);
-	}
-	else if (!IsLocallyControlled() && ThirdPersonAnimInstance && TPPMontage)
-	{
-		ThirdPersonAnimInstance->Montage_Play(TPPMontage);
-	}
+	EquipWeapon(Weapon);
 }
 
 
@@ -565,8 +482,14 @@ void ASCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ASCharacterBase, bIsBlocking);
-	DOREPLIFETIME(ASCharacterBase, bCurrentWeaponIsMagicCharged);
-	DOREPLIFETIME(ASCharacterBase, MagicUseState);
+
+	DOREPLIFETIME(ASCharacterBase, CurrentWeapon);
+
+	// only to local owner: weapon change requests are locally instigated, other clients don't need it
+	DOREPLIFETIME_CONDITION(ASCharacterBase, WeaponInventory, COND_OwnerOnly);
+	
+
 }
+
+
 

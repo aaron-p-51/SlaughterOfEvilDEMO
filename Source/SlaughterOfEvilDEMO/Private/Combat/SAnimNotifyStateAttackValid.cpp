@@ -4,7 +4,7 @@
 #include "Combat/SAnimNotifyStateAttackValid.h"
 
 // Game Includes
-#include "Player/SCharacterBase.h"
+#include "SMeleeWeaponWielder.h"
 
 
 void USAnimNotifyStateAttackValid::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float TotalDuration)
@@ -13,10 +13,10 @@ void USAnimNotifyStateAttackValid::NotifyBegin(USkeletalMeshComponent* MeshComp,
 
 	if (!MeshComp) return;
 
-	ASCharacterBase* MeshOwner = Cast<ASCharacterBase>(MeshComp->GetOwner());
+	auto MeshOwner = Cast<ISMeleeWeaponWielder>(MeshComp->GetOwner());
 	if (MeshOwner)
 	{
-		MeshOwner->TrySetMeleeAttackState(EMeleeAttackState::EMAS_CauseDamage);
+		MeshOwner->MeleeAttackCanCauseDamage(true);
 	}
 }
 
@@ -26,9 +26,9 @@ void USAnimNotifyStateAttackValid::NotifyEnd(USkeletalMeshComponent* MeshComp, U
 
 	if (!MeshComp) return;
 
-	ASCharacterBase* MeshOwner = Cast<ASCharacterBase>(MeshComp->GetOwner());
+	auto MeshOwner = Cast<ISMeleeWeaponWielder>(MeshComp->GetOwner());
 	if (MeshOwner)
 	{
-		MeshOwner->TrySetMeleeAttackState(EMeleeAttackState::EMAS_Attacking);
+		MeshOwner->MeleeAttackCanCauseDamage(false);
 	}
 }

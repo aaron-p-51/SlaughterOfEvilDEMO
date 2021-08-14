@@ -9,21 +9,11 @@
 
 // Game Includes
 #include "Magic/SMagicProjectileBase.h"
-#include "SMeleeWeaponWielder.h"
-#include "Components/SMagicChargeComponent.h"
 
 ASLongsword::ASLongsword()
 {
 
-	// All Collisions will handled
-	if (MeshComp)
-	{
-		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	}
-
-	
 }
-
 
 void ASLongsword::BeginPlay()
 {
@@ -33,10 +23,7 @@ void ASLongsword::BeginPlay()
 	{
 		MeshDynamicMaterial = MeshComp->CreateAndSetMaterialInstanceDynamic(0);
 	}
-
-	
 }
-
 
 void ASLongsword::ApplyMagicChargeEffects()
 {
@@ -54,32 +41,21 @@ void ASLongsword::RemoveMagicChargeEffects()
 	}
 }
 
-
-void ASLongsword::ReleaseMagicCharge(FTransform& ReleaseTransform)
+void ASLongsword::ReleaseMagicCharge(FTransform ReleaseTransform)
 {
-	if (GetLocalRole() == ENetRole::ROLE_Authority && MagicChargeComp)
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
 	{
-		MagicChargeComp->TryRemoveMagicCharge();
-
 		if (DefaultMagicProjectile)
 		{
 			auto MagicProjectile = Cast<ASMagicProjectileBase>(UGameplayStatics::BeginDeferredActorSpawnFromClass(this, DefaultMagicProjectile, ReleaseTransform));
 			if (MagicProjectile)
 			{
-				MagicProjectile->InitialSpeed = 1000.f;
-				MagicProjectile->Mass = 1.f;
-				MagicProjectile->Drag = 0.f;
-				MagicProjectile->Gravity = FVector::ZeroVector;
 				MagicProjectile->SetOwner(this);
 				MagicProjectile->SetInstigator(Cast<APawn>(GetOwner()));
-
 				UGameplayStatics::FinishSpawningActor(MagicProjectile, ReleaseTransform);
 			}
 		}
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("ReleaseMagicCharge"));
 }
-
 
 

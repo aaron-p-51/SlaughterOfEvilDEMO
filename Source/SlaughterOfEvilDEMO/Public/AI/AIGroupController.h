@@ -98,10 +98,10 @@ struct FAIGroupControlData
 	AActor* TargetActor;
 
 	UPROPERTY()
-	int32 AttackCounter;
+	float LastAttackTime = 0.f;
 
 	UPROPERTY()
-	int32 RangeAttackCounter;
+	int32 LastRangeAttackTime = 0.f;
 
 };
 
@@ -221,8 +221,15 @@ protected:
 	TMap<AActor*, FAIControlledGroup> AIControlledGroups;
 
 	/** Timer period for OnGroupTimerTick should be as low as possible when called every Actor in every AIControlledGroup will update */
-	UPROPERTY(EditAnywhere)
-	float GroupTimerPeriod;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Timers", meta = (ClampMin = "0.1", UIMin = "0.1"))
+	float ManageActorsFieldAssignmentTimerPeriod;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Timers", meta = (ClampMin = "0.1", UIMin = "0.1"))
+	float ManageActorsStayInFieldTimerPeriod;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Timers", meta = (ClampMin = "0.1", UIMin = "0.1"))
+	float TickAIControlledGroupsPeriod;
+
 
 public:
 
@@ -237,7 +244,11 @@ public:
 private:	
 
 	/** Timer handle for calling OnGroupTimerTick */
-	FTimerHandle GroupTickTimerHandle;
+	FTimerHandle ManageActorsFieldsAssignmentsTimerHandle;
+
+	FTimerHandle ManageActorsStayInFieldTimerHandle;
+
+	FTimerHandle TickAIControlledGroupsTimerHandle;
 
 	/**
 	 * Draw debug marks
@@ -280,10 +291,20 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	void OnGroupTimerTick();
+	void ManageActorsFieldAssignmentTimerTick();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "AIGroupController | Events")
-	void BP_OnGroupTimerTick();
+	void BP_ManageActorsFieldAssignmentTimerTick();
+
+	void ManageActorsStayInFieldTimerTick();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "AIGroupController | Events")
+	void BP_ManageActorsStayInFieldTimerTick();
+
+	void TickAIControlledGroups();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "AIGroupController | Events")
+	void BP_TickAIControlledGroups();
 
 	/**
 	 * Get current number of AI Group Controlled Actors that are assigned to GroupTarget and are assigned
@@ -297,6 +318,9 @@ protected:
 	AActor* GetFarthestGroupControlledActorInField(AActor* GroupTarget, EGroupField Field);
 
 	AActor* GetClosestGroupControlledActorInField(AActor* GroupTarget, EGroupField Field);
+
+	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
+	void GetAllGroupControlledActorsCurrentlyInField(AActor* GroupTarget, EGroupField Field, TArray<AActor*>& ActorsInField);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	bool IsAllowedInNearFeild(AActor* AIGroupControlledActor) const;
@@ -338,10 +362,14 @@ protected:
 	void TryTriggerAttack(AActor* GroupTarget, AActor* AIGroupControlledActor);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
+	void TryTriggerRangeAttack(AActor* GroupTarget, AActor* AIGroupControlledActor);
+
+	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	void SetGroupTargetForAIGroupActor(AActor* GroupTarget, AActor* AIGroupControlledActor);
 
 	UFUNCTION(BlueprintCallable, Category = "AIGroupController")
 	void RegisterGroupTargetWithAIGroupActor(AActor* GroupTarget, AActor* AIGroupControlledActor, EGroupField Feild);
+
 
 	void GroupTargetFieldEntered(AActor* GroupTarget, AActor* AIGroupControlledActor, EGroupField EnteredField, EGroupField PreviousField);
 

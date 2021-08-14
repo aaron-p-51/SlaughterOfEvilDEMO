@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Weapons/SMeleeWeapon.h"
 #include "UObject/Interface.h"
 #include "SMeleeWeaponWielder.generated.h"
 
@@ -25,15 +26,18 @@ class SLAUGHTEROFEVILDEMO_API ISMeleeWeaponWielder
 public:
 
 
+	virtual ASMeleeWeapon* GetCurrentMeleeWeapon() = 0;
 
 	virtual bool IsBlocking() = 0;
 	virtual void WeaponMagicChargeChange(bool Value) = 0;
 
 	
 	virtual void MeleeAttack() = 0;
+	virtual void MeleeAttackCanCauseDamage(bool Value) = 0;
+	virtual void MeleeAttackFinished() = 0;
 
-	virtual void MeleeBlockStart() = 0;
-	virtual void MeleeBlockStop() = 0;
+	virtual void MeleeStartBlock() = 0;
+	virtual void MeleeStopBlock() = 0;
 	//virtual bool TrySetMagicCharge(bool Charged) = 0;
 
 

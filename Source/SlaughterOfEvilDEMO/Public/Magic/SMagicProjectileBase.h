@@ -11,6 +11,7 @@ class UParticleSystem;
 class USphereComponent;
 class UMeshComponent;
 class USMagicChargeComponent;
+class UProjectileMovementComponent;
 
 UCLASS()
 class SLAUGHTEROFEVILDEMO_API ASMagicProjectileBase : public AActor
@@ -21,6 +22,36 @@ class SLAUGHTEROFEVILDEMO_API ASMagicProjectileBase : public AActor
 /**
  * Members
  */
+
+private:
+
+	/*****************************************************************/
+	/* Status */
+	/*****************************************************************/
+
+	/** CurrentPosition this frame, used to detect collisions */
+	UPROPERTY()
+	FVector CurrentPosition;
+
+	/** Position last frame, used to detect collisions */
+	UPROPERTY()
+	FVector PreviousPosition;
+
+	/** Radius to detect collision hit, will be radius of SphereComp */
+	UPROPERTY()
+	float SphereTraceRadius;
+
+	/** If the projectile is homing then the projectile will track this actor. This should not be set directly see @SetHomingTargetActor  */
+	UPROPERTY(ReplicatedUsing = OnRep_HomingTargetActor)
+	AActor* HomingActor;
+
+	/** Cached distance, prevent Sqrt() see @StopHomingDistance */
+	float StopHomingDistanceSquared;
+
+	/** Has the projectile got within StopHomingDistance */
+	bool bHasEnteredStopHomingDistance;
+
+
 
 protected:
 
@@ -36,6 +67,10 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* MeshComp;
 
+	/** Projectile Movement. Movement is not replicated all clients will simulate on their owne */
+	UPROPERTY(EditDefaultsOnly)
+	UProjectileMovementComponent* ProjectileMovement;
+
 	/*****************************************************************/
 	/* Gameplay */
 	/*****************************************************************/
@@ -45,7 +80,7 @@ protected:
 	float BaseDamage;
 
 	/**
-	 * Is it possible for anoter actor to block this projectile. Blocking could be not taking
+	 * Is it possible for another actor to block this projectile. Blocking could be not taking
 	 * damage or magic charging
 	 */
 	UPROPERTY(EditAnywhere, Category = "Gameplay")
@@ -63,51 +98,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	TEnumAsByte<ECollisionChannel> CollisionChannel;
 
-	/*****************************************************************/
-	/* Status */
-	/*****************************************************************/
+	/** Life Time of the projectile, after LifeTime is exceeded from time of spawn, this actor will be destroyed */
+	UPROPERTY(EditDefaultsOnly)
+	float LifeTime;
 
-	/** Current acceleration this frame */
-	UPROPERTY(BlueprintReadOnly)
-	FVector Acceleration;
+	/** Play the OnHitEffects if upon destruction if LifeTime is exceeded */
+	UPROPERTY(EditDefaultsOnly)
+	bool bPlayOnHitEffectsLifeTimeExceeded;
 
-	/** Current velocity this frame */
-	UPROPERTY(BlueprintReadOnly)
-	FVector Velocity;
+	/** TimerHandle to keep track of LifeTime */
+	FTimerHandle TimerHandle_LifeTime;
 
-	/** Position projectile should move to this frame */
-	UPROPERTY(BlueprintReadOnly)
-	FVector NextPosition;
-
-	/** Position of projectile last frame */
-	UPROPERTY(BlueprintReadOnly)
-	FVector PreviousPosition;
-
-	/** Radius to detect hit, will be radius of SphereComp */
-	UPROPERTY(BlueprintReadOnly)
-	float SphereTraceRadius;
-
-public:
-
-	/*****************************************************************/
-	/* Movement Configuration */
-	/*****************************************************************/
-
-	/** Initial speed of projectile when spawned, will not have any effect if changed after spawning */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	float InitialSpeed;
-
-	/** Mass of projectile, can be changed during life of projectile */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	float Mass;
-
-	/** Drag of projectile (N), can be changed during life of projectile */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	float Drag;
-
-	/** Effect of gravity on projectile, can be changed during life of projectile */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Config|Projectile Properties", meta = (ExposeOnSpawn = "true"))
-	FVector Gravity;
+	/** Once the projectile get with in this distance and then exits the projectile will stop homing, prevents the projectile
+	 * from hitting the Player when player is not facing projectile*/
+	UPROPERTY(EditDefaultsOnly)
+	float StopHomingDistance;
 
  /**
   * Methods
@@ -116,40 +121,42 @@ public:
 
 public:	
 
-	/**  Sets default values for this actor's properties */
+	/** Sets default values for this actor's properties */
 	ASMagicProjectileBase();
 
-	// Called every frame
+	/** Called every frame */
 	virtual void Tick(float DeltaTime) override;
+
+	/** [Server] Set the homing targets, will only have effect if projectile movement component has homing enabled,
+	 * and passed in TargetActor. Logic to setup homing component see @OnRep_HomingTargetActor()
+	 * 
+	 * @param TargetActor		Actor for ProjectileMovement to track;
+	 */
+	UFUNCTION()
+	void SetHomingTargetActor(AActor* TargetActor);
 
 
 protected:
-	// Called when the game starts or when spawned
+
+	/**  Called when the game starts or when spawned */
 	virtual void BeginPlay() override;
 
 private:
 
 	/**
-	 * [Server + Client] Calculate projectile movement this frame, movement is not replicated, all clients
-	 * will move the projectile themselves
-	 * 
-	 * @param DeltaTime			Time between frames
-	 */
-	void CalculateMovement(float DeltaTime);
-
-	/**
 	 * [Server + Client] Detect if hit will occur when projectile moves from PreviousPosition to NextPosition.
 	 * 
+	 * @param HitResults	HitResults will be populated with collisions detected
 	 * return	ture if at least one actor was detected
 	 */
-	bool DetectHit();
+	bool DetectHit(TArray<FHitResult>& HitResults) const;
 
 	/**
 	 * [Server + Client] Emit OnHitEffects
 	 * @param HitResults	Results from trace used to detect hit
 	 *
 	 */
-	void EmitOnHitEffects(TArray<FHitResult>& HitResults) const;
+	void EmitOnHitEffects(const TArray<FHitResult>& HitResults) const;
 
 	/**
 	 * [Server] If hit is detected try and apply magic charge to actor if actor has USMagicChargeComponent
@@ -157,7 +164,7 @@ private:
 	 * 
 	 * return true if magic charge was applied
 	 */
-	bool TryApplyMagicCharge(TArray<FHitResult>& HitResults) const;
+	bool TryApplyMagicCharge(const TArray<FHitResult>& HitResults) const;
 
 	/**
 	 * [Client + Server] Get the closest Actors HitResult to this actors position. HitResults generated in trace done by DetectHit()
@@ -165,7 +172,28 @@ private:
 	 * 
 	 * return HitResult of closest Actor Hit
 	 */
-	FHitResult GetFirstHitActorHitResult(TArray<FHitResult>& HitResults) const;
+	FHitResult GetFirstHitActorHitResult(const TArray<FHitResult>& HitResults) const;
 
+	/**
+	 * [Server + Client] Called when HomingActor is set via SetHomingTargetActor called on server.
+	 * Will set ProjectileMovement->HomingTargetComponent. The actor passed in to SetHomingTargetActor
+	 * needs to implement ISProjectileMagicTarget for the HomingTargetComponent to be properly set up
+	 */
+	UFUNCTION()
+	void OnRep_HomingTargetActor();
+
+	/** [Server + Client] Called when LifeTime is exceeded. Will destroy actor */
+	UFUNCTION()
+	void LifeTimeExceeded();
+
+	/**
+	 * [Server + Client] Check the distance to between this actor and HomingActor. Once the distance between the two actors is less than
+	 * StopHomingDistance bHasEnteredStopHomingDistance will be set. Once this actor then gets farther away than StopHomingDistance it will stop homing
+	 * this is to prevent homing projectile to circle back and hit target (Player) from behind 
+	 
+			TODO: This will not work. If projectile moves past target in single frame bHasEnteredStopHomingDistance will never be set.
+			build vector to intercest with target (maybe) try again later
+	 */
+	void StopHomingDistanceCheckAndApply();
 
 };

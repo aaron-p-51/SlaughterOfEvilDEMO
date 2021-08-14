@@ -87,6 +87,9 @@ void UAIGroupTargetActorComponent::BindAIGroupTargetComponents(EGroupField Group
 		USphereComponent* AIGroupField = Cast<USphereComponent>(OwnerSphereComps[0]);
 		if (AIGroupField && WorldAIGroupController)
 		{
+			AIGroupField->SetGenerateOverlapEvents(true);
+			AIGroupField->SetCollisionProfileName(TEXT("AIGroupField"));
+
 			switch (GroupField)
 			{
 			case EGroupField::EGF_Actor:

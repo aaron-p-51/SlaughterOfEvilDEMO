@@ -15,7 +15,10 @@ void USAnimNotifyAttackFinished::Notify(USkeletalMeshComponent* MeshComp, UAnimS
 	auto MeshOwner = Cast<ASCharacterBase>(MeshComp->GetOwner());
 	if (MeshOwner)
 	{
-		MeshOwner->TrySetMeleeAttackState(EMeleeAttackState::EMAS_Idle);	
+		auto Weapon = MeshOwner->GetCurrentMeleeWeapon();
+		if (Weapon)
+		{
+			Weapon->OnUseFinish();
+		}
 	}
-
 }

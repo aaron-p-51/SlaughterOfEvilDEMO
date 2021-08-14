@@ -13,6 +13,8 @@ class SLAUGHTEROFEVILDEMO_API UAIGroupTargetActorComponent : public UActorCompon
 {
 	GENERATED_BODY()
 
+
+
 /**
  * Members
  */

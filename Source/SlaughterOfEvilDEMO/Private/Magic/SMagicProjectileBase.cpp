@@ -11,12 +11,14 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Math/UnrealMathUtility.h"
 #include "Net/UnrealNetwork.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 
 
 // Game Includes
 #include "SMeleeWeaponWielder.h"
 #include "Weapons/SMeleeWeaponBase.h"
 #include "Components/SMagicChargeComponent.h"
+#include "SProjectileMagicTarget.h"
 
 // Sets default values
 ASMagicProjectileBase::ASMagicProjectileBase()
@@ -31,27 +33,26 @@ ASMagicProjectileBase::ASMagicProjectileBase()
 	}
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-	if (SphereComp)
+	if (MeshComp)
 	{
 		MeshComp->SetupAttachment(GetRootComponent());
 	}
 
+	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 
 	// Set defaults (if errors are found try setting in BeginPlay()
-	InitialSpeed = 10.f;
-	Mass = 1.f;
-	Drag = 0.f;
 	SphereTraceRadius = 10.f;
 	BaseDamage = 0.f;
 	bCanBeBlocked = false;
 	bCausesDamage = false;
-	Velocity = FVector::ZeroVector;
-	Acceleration = FVector::ZeroVector;
-	Gravity = FVector::ZeroVector;
-	NextPosition = FVector::ZeroVector;
+	CurrentPosition = FVector::ZeroVector;
 	PreviousPosition = FVector::ZeroVector;
-
+	LifeTime = 4.f;
+	StopHomingDistance = 0.f;
 	bReplicates = true;
+
+	// Let clients update movement themselves
+	SetReplicateMovement(false);
 }
 
 
@@ -60,15 +61,18 @@ void ASMagicProjectileBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Sphere trace radius will be radius of SphereComp
+	// Set timer for LifeTime
+	GetWorldTimerManager().SetTimer(TimerHandle_LifeTime, this, &ASMagicProjectileBase::LifeTimeExceeded, LifeTime);
+
+	// Sphere trace radius for collision detection will be radius of SphereComp
 	if (SphereComp)
 	{
 		SphereTraceRadius = SphereComp->GetScaledSphereRadius();
 	}
 
-	// Set projectile initial velocity
-	Velocity = GetActorForwardVector() * InitialSpeed;
+	PreviousPosition = GetActorLocation();
 
+	StopHomingDistanceSquared = StopHomingDistance * StopHomingDistance;
 }
 
 
@@ -77,65 +81,60 @@ void ASMagicProjectileBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Movement is not replicated. All clients will move projectile on their own
-	CalculateMovement(DeltaTime);
+	// Hit detection is done from the actors position last frame and this current frame, get position this frame
+	CurrentPosition = GetActorLocation();
 
-	// Hits will be detected on all clients, only server will apply damage and try to set magic charge state on hit actors
-	if (DetectHit())
+	TArray<FHitResult> HitResults;
+	if (DetectHit(HitResults))
 	{
-		// If hit is detected on server before clients stop replication, alllow for clients to 
-		// show particle effects from collision
+		EmitOnHitEffects(HitResults);
+
 		if (GetLocalRole() == ENetRole::ROLE_Authority)
 		{
+			TryApplyMagicCharge(HitResults);
+
+			// If hit is detected on server before clients then stop replication, allow for clients to 
+			// show particle effects from collision
 			TearOff();
 		}
-
+		
 		Destroy();
 	}
-	else
+
+	if (StopHomingDistance > 0.f)
 	{
-		// Set new position and rotation calculated this frame (CalculateMovement())
-		SetActorLocation(NextPosition);
-		SetActorRotation(UKismetMathLibrary::MakeRotFromX(Velocity));
+		StopHomingDistanceCheckAndApply();
+	}
+
+	PreviousPosition = GetActorLocation();
+}
+
+
+void ASMagicProjectileBase::StopHomingDistanceCheckAndApply()
+{
+	USceneComponent* HomingTarget = Cast<USceneComponent>(ProjectileMovement->HomingTargetComponent);
+	if (HomingTarget)
+	{
+		float DistanceSquared = (HomingTarget->GetOwner()->GetActorLocation() - GetActorLocation()).SizeSquared();
+		if (DistanceSquared >= StopHomingDistanceSquared)
+		{
+			ProjectileMovement->HomingTargetComponent = nullptr;
+		}
 	}
 }
 
 
-void ASMagicProjectileBase::CalculateMovement(float DeltaTime)
-{
-	PreviousPosition = GetActorLocation();
-
-	// Calculate effect of drag
-	float DragEffect = (Mass == 0.f || FMath::IsNearlyZero(Mass)) ? 0.f : Drag / Mass;
-
-	// Calculate acceleration taking into account gravity and drag
-	Acceleration = Gravity - (Velocity * Velocity) * DragEffect;
-
-	// Calculate the position offset this frame (See https://www.meizenberg.com/post/projectiles-with-blueprints for
-	// greater explanation, sources in post.)
-	FVector PositionOffset = (Velocity * DeltaTime) + (Acceleration * DeltaTime * DeltaTime) / 2;
-
-	// Position to move to this frame
-	NextPosition = PreviousPosition + PositionOffset;
-
-	// Update Velocity for next frame
-	Velocity = Velocity + Acceleration * DeltaTime;
-}
-
-
-bool ASMagicProjectileBase::DetectHit()
+bool ASMagicProjectileBase::DetectHit(TArray<FHitResult>& HitResults) const
 {
 	TArray<AActor*> IgnoreActors;
 	IgnoreActors.Add(GetOwner());
 	IgnoreActors.Add(GetInstigator());
 
-	TArray<FHitResult> HitResults;
-
-	// Sphere trace from previous position to position projectile will move to at the end of this frame 
+	// Sphere trace from location last from to location this frame
 	bool bHitDetected = UKismetSystemLibrary::SphereTraceMulti(
 		this,
 		PreviousPosition,
-		NextPosition,
+		CurrentPosition,
 		SphereTraceRadius,
 		UEngineTypes::ConvertToTraceType(CollisionChannel),
 		false,
@@ -145,41 +144,39 @@ bool ASMagicProjectileBase::DetectHit()
 		true
 	);
 
-
-	if (bHitDetected)
+	for (auto& HitResult : HitResults)
 	{
-		EmitOnHitEffects(HitResults);
-		
-		if (GetLocalRole() == ENetRole::ROLE_Authority)
-		{
-			TryApplyMagicCharge(HitResults);
-		}
+		AActor* Actor = HitResult.GetActor();
+		auto Comp = HitResult.GetComponent();
+		UE_LOG(LogTemp, Warning, TEXT("Projectile hit: %s, Component: %s"), *Actor->GetName(), *Comp->GetName());
 	}
+
 	return bHitDetected;
 }
 
 
-void ASMagicProjectileBase::EmitOnHitEffects(TArray<FHitResult>& HitResults) const
+void ASMagicProjectileBase::EmitOnHitEffects(const TArray<FHitResult>& HitResults) const
 {
 	if (OnHitEffects)
 	{
+		// Multiple collisions may have been detected. Get GetFirstHitActorHitResult will get HitResult that occurred first and where the OnHitEffects should occur
 		FHitResult FirstHitActorResult = GetFirstHitActorHitResult(HitResults);
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, FirstHitActorResult.Location, UKismetMathLibrary::MakeRotFromX(FirstHitActorResult.Normal));
 	}
 }
 
 
-FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& HitResults) const
+FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(const TArray<FHitResult>& HitResults) const
 {
 	float ClosestDistance = NAN;
 	FHitResult Result;
 
-	// Look at all actors in HitResults. Find the Actor that has the closest location the this actors current location
+	// Look at all actors in HitResults. Find the Actor that has the closest location this actors location last frame.
 	for (auto HitResult : HitResults)
 	{
 		auto HitLocation = HitResult.Location;
 
-		float DistanceToHitHitLocation = FVector::DistSquared(HitLocation, GetActorLocation());
+		float DistanceToHitHitLocation = FVector::DistSquared(HitLocation, PreviousPosition);
 		if (ClosestDistance == NAN || DistanceToHitHitLocation < ClosestDistance)
 		{
 			ClosestDistance = DistanceToHitHitLocation;
@@ -191,14 +188,65 @@ FHitResult ASMagicProjectileBase::GetFirstHitActorHitResult(TArray<FHitResult>& 
 }
 
 
-bool ASMagicProjectileBase::TryApplyMagicCharge(TArray<FHitResult>& HitResults) const
+void ASMagicProjectileBase::SetHomingTargetActor(AActor* TargetActor)
 {
-	// Only run on server
+	if (GetLocalRole() == ENetRole::ROLE_Authority && ProjectileMovement &&
+		ProjectileMovement->bIsHomingProjectile && TargetActor)
+	{
+		HomingActor = TargetActor;
+		OnRep_HomingTargetActor();
+	}
+}
+
+
+void ASMagicProjectileBase::OnRep_HomingTargetActor()
+{
+	if (!HomingActor) return;
+	
+	// Homing Actor must implement ISProjectileMagicTarget. Actors who ISProjectileMagicTarget will have a
+	// a USceneComponent that can be used as a HomingTargetComponent. Actors who implement ISProjectileMagicTarget may chance
+	// the relative transform of the component being used as the USceneComponent for example: player crouching and change 
+	// HomingTargetComponent to change heights. 
+	auto ProjectileTargetInterface = Cast<ISProjectileMagicTarget>(HomingActor);
+	if (ProjectileTargetInterface && ProjectileMovement && ProjectileMovement->bIsHomingProjectile)
+	{
+		ProjectileMovement->HomingTargetComponent = ProjectileTargetInterface->GetProjectileHomingTarget();
+	}
+	
+	//TODO: If actor does not implement ISProjectileMagicTarget dynamically create a USceneCompoent on actor
+	// and assign HomingTargetComponent (TWeakObjectPtr) to it.
+	
+}
+
+
+void ASMagicProjectileBase::LifeTimeExceeded()
+{
+	GetWorldTimerManager().ClearTimer(TimerHandle_LifeTime);
+
+	// Play OnHit Results if that is desired behavior
+	if (bPlayOnHitEffectsLifeTimeExceeded && OnHitEffects)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), OnHitEffects, GetActorLocation(), GetActorRotation(), true);
+	}
+
+	// If LifeTimeExceeded on server occurs before clients then stop replication, allow for clients to 
+	// show particle effects from collision and destroy themselves
+	if (GetLocalRole() == ENetRole::ROLE_Authority)
+	{
+		TearOff();
+	}
+
+	Destroy();
+}
+
+
+bool ASMagicProjectileBase::TryApplyMagicCharge(const TArray<FHitResult>& HitResults) const
+{
 	if (GetLocalRole() != ENetRole::ROLE_Authority) return false;
 
-	for (auto HitResult : HitResults)
+	for (auto& HitResult : HitResults)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *HitResult.GetActor()->GetName());
+		// check if the hit actor has a USMagicChargeComponent if so try and apply a magic charge to it.
 		auto ActorMagicChargeComp = HitResult.GetActor()->FindComponentByClass<USMagicChargeComponent>();
 		if (ActorMagicChargeComp)
 		{
@@ -219,11 +267,7 @@ void ASMagicProjectileBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ASMagicProjectileBase, InitialSpeed);
-	DOREPLIFETIME(ASMagicProjectileBase, Mass);
-	DOREPLIFETIME(ASMagicProjectileBase, Drag);
-	DOREPLIFETIME(ASMagicProjectileBase, Gravity);
-
+	DOREPLIFETIME(ASMagicProjectileBase, HomingActor);
 }
 
 
